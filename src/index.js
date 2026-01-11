@@ -14,6 +14,21 @@ app.use('/api', apiRouter);
 // Swagger / OpenAPI UI
 const swaggerUi = require('swagger-ui-express');
 const openapi = require('./openapi.json');
+const path = require('path');
+// Serve swagger-ui static assets directly (ensure correct MIME types on some hosts)
+try {
+  const swaggerUiDist = require('swagger-ui-dist');
+  const swaggerUiAssetPath = swaggerUiDist.getAbsoluteFSPath();
+  app.use('/api-docs', express.static(swaggerUiAssetPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.js')) res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+      if (filePath.endsWith('.css')) res.setHeader('Content-Type', 'text/css; charset=UTF-8');
+    }
+  }));
+} catch (err) {
+  // if swagger-ui-dist is not available, fall back to swagger-ui-express assets
+}
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapi));
 
 app.get('/health', async (req, res) => {
