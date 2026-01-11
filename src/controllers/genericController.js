@@ -21,7 +21,9 @@ function createController(service, resourceName = 'resource') {
 
   async function create(req, res) {
     try {
-      const created = await service.create(req.body);
+      // Allow payloads wrapped by resource name or its plural (e.g. {"customer": {...}} or {"customers": {...}})
+      const payload = req.body && (req.body[resourceName] || req.body[`${resourceName}s`]) ? (req.body[resourceName] || req.body[`${resourceName}s`]) : req.body;
+      const created = await service.create(payload);
       return res.status(201).json({ ok: true, data: created });
     } catch (err) {
       return res.status(400).json({ ok: false, error: err.message });
@@ -30,7 +32,8 @@ function createController(service, resourceName = 'resource') {
 
   async function update(req, res) {
     try {
-      const updated = await service.update(req.params.id, req.body);
+      const payload = req.body && (req.body[resourceName] || req.body[`${resourceName}s`]) ? (req.body[resourceName] || req.body[`${resourceName}s`]) : req.body;
+      const updated = await service.update(req.params.id, payload);
       if (!updated) return res.status(404).json({ ok: false, error: `${resourceName} not found` });
       return res.json({ ok: true, data: updated });
     } catch (err) {
