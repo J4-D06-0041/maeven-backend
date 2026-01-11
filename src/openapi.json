@@ -1,0 +1,177 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Maeven Collections API",
+    "version": "1.0.0",
+    "description": "API spec with endpoints grouped by tags."
+  },
+  "servers": [{ "url": "http://localhost:3000" }],
+  "tags": [
+    { "name": "Branches" },
+    { "name": "Sales Channels" },
+    { "name": "Users" },
+    { "name": "Customers" },
+    { "name": "Suppliers" },
+    { "name": "Categories" },
+    { "name": "Products" },
+    { "name": "Product Variants" },
+    { "name": "Inventories" },
+    { "name": "Orders" },
+    { "name": "Order Items" },
+    { "name": "Payments" },
+    { "name": "Purchase Orders" },
+    { "name": "Expenses" },
+    { "name": "Returns" }
+  ],
+  "paths": {
+    "/api/branches": {
+      "get": { "tags": ["Branches"], "summary": "List branches", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Branches"], "summary": "Create branch", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/branches/{id}": {
+      "get": { "tags": ["Branches"], "summary": "Get branch", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Branches"], "summary": "Update branch", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Branches"], "summary": "Delete branch", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/sales-channels": {
+      "get": { "tags": ["Sales Channels"], "summary": "List sales channels", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Sales Channels"], "summary": "Create sales channel", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/sales-channels/{id}": {
+      "get": { "tags": ["Sales Channels"], "summary": "Get sales channel", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Sales Channels"], "summary": "Update sales channel", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Sales Channels"], "summary": "Delete sales channel", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/users": {
+      "get": { "tags": ["Users"], "summary": "List users", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Users"], "summary": "Create user", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/users/{id}": {
+      "get": { "tags": ["Users"], "summary": "Get user", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Users"], "summary": "Update user", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Users"], "summary": "Delete user", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/customers": {
+      "get": { "tags": ["Customers"], "summary": "List customers", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Customers"], "summary": "Create customer", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/customers/{id}": {
+      "get": { "tags": ["Customers"], "summary": "Get customer", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Customers"], "summary": "Update customer", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Customers"], "summary": "Delete customer", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/suppliers": {
+      "get": { "tags": ["Suppliers"], "summary": "List suppliers", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Suppliers"], "summary": "Create supplier", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/suppliers/{id}": {
+      "get": { "tags": ["Suppliers"], "summary": "Get supplier", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Suppliers"], "summary": "Update supplier", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Suppliers"], "summary": "Delete supplier", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/categories": {
+      "get": { "tags": ["Categories"], "summary": "List categories", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Categories"], "summary": "Create category", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/categories/{id}": {
+      "get": { "tags": ["Categories"], "summary": "Get category", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Categories"], "summary": "Update category", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Categories"], "summary": "Delete category", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/products": {
+      "get": { "tags": ["Products"], "summary": "List products", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Products"], "summary": "Create product", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/products/{id}": {
+      "get": { "tags": ["Products"], "summary": "Get product", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Products"], "summary": "Update product", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Products"], "summary": "Delete product", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/product-variants": {
+      "get": { "tags": ["Product Variants"], "summary": "List product variants", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Product Variants"], "summary": "Create product variant", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/product-variants/{id}": {
+      "get": { "tags": ["Product Variants"], "summary": "Get product variant", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Product Variants"], "summary": "Update product variant", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Product Variants"], "summary": "Delete product variant", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/inventories": {
+      "get": { "tags": ["Inventories"], "summary": "List inventories", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Inventories"], "summary": "Create inventory", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/inventories/{id}": {
+      "get": { "tags": ["Inventories"], "summary": "Get inventory", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Inventories"], "summary": "Update inventory", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Inventories"], "summary": "Delete inventory", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/orders": {
+      "get": { "tags": ["Orders"], "summary": "List orders", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Orders"], "summary": "Create order", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/orders/{id}": {
+      "get": { "tags": ["Orders"], "summary": "Get order", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Orders"], "summary": "Update order", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Orders"], "summary": "Delete order", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/order-items": {
+      "get": { "tags": ["Order Items"], "summary": "List order items", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Order Items"], "summary": "Create order item", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/order-items/{id}": {
+      "get": { "tags": ["Order Items"], "summary": "Get order item", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Order Items"], "summary": "Update order item", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Order Items"], "summary": "Delete order item", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/payments": {
+      "get": { "tags": ["Payments"], "summary": "List payments", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Payments"], "summary": "Create payment", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/payments/{id}": {
+      "get": { "tags": ["Payments"], "summary": "Get payment", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Payments"], "summary": "Update payment", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Payments"], "summary": "Delete payment", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/purchase-orders": {
+      "get": { "tags": ["Purchase Orders"], "summary": "List purchase orders", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Purchase Orders"], "summary": "Create purchase order", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/purchase-orders/{id}": {
+      "get": { "tags": ["Purchase Orders"], "summary": "Get purchase order", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Purchase Orders"], "summary": "Update purchase order", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Purchase Orders"], "summary": "Delete purchase order", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/expenses": {
+      "get": { "tags": ["Expenses"], "summary": "List expenses", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Expenses"], "summary": "Create expense", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/expenses/{id}": {
+      "get": { "tags": ["Expenses"], "summary": "Get expense", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Expenses"], "summary": "Update expense", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Expenses"], "summary": "Delete expense", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/returns": {
+      "get": { "tags": ["Returns"], "summary": "List returns", "responses": { "200": { "description": "OK" } } },
+      "post": { "tags": ["Returns"], "summary": "Create return", "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/returns/{id}": {
+      "get": { "tags": ["Returns"], "summary": "Get return", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Returns"], "summary": "Update return", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Returns"], "summary": "Delete return", "responses": { "204": { "description": "No content" } } }
+    }
+  }
+}

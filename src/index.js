@@ -7,6 +7,15 @@ const app = express();
 app.use(express.json());
 app.use(morgan('dev'));
 
+// API routes
+const apiRouter = require('./routes/api');
+app.use('/api', apiRouter);
+
+// Swagger / OpenAPI UI
+const swaggerUi = require('swagger-ui-express');
+const openapi = require('./openapi.json');
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapi));
+
 app.get('/health', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT NOW()');
