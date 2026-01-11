@@ -1,4 +1,5 @@
 const express = require('express');
+const openapi = require('../openapi.json');
 const { createService } = require('../services/genericService');
 const { createController } = require('../controllers/genericController');
 
@@ -19,6 +20,12 @@ const expensesModel = require('../models/expenses');
 const returnsModel = require('../models/returns');
 
 const router = express.Router();
+
+// Serve the OpenAPI JSON for import tools (e.g., bolt.new)
+router.get('/openapi.json', (req, res) => {
+  res.type('application/json');
+  return res.json(openapi);
+});
 
 function wire(path, model, opts = {}) {
   const svc = createService(model);
