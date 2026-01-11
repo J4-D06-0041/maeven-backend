@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const usersModel = require('../models/users');
+const jwt = require('jsonwebtoken');
 
 const router = express.Router();
 
@@ -25,7 +26,20 @@ router.post('/login', async (req, res) => {
     if (!match) return res.status(401).json({ ok: false, error: 'invalid credentials' });
 
     const { password_hash, ...safeUser } = user;
-    return res.json({ ok: true, data: safeUser });
+    // Build JWT token (include id and role). Provide a fallback secret for dev.
+    const jwtSecret = process.env.JWT_SECRET || 'please-change-this-secret';
+    const token = jwt.sign({ id: user.id, role: user.role }, jwtSecret, { expiresIn: '8h' });
+
+    // Normalize user object expected by clients
+    const userPayload = {
+      id: user.id,
+      name: user.full_name || user.fullName || null,
+      phone: user.phone || null,
+      role: user.role || null
+    };
+
+    // Return original data plus the token and normalized user object
+    return res.json({ ok: true, data: safeUser, token, user: userPayload });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }
