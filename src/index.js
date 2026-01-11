@@ -19,7 +19,11 @@ const path = require('path');
 try {
   const swaggerUiDist = require('swagger-ui-dist');
   const swaggerUiAssetPath = swaggerUiDist.getAbsoluteFSPath();
+  // Prevent the static `index.html` from swagger-ui-dist being served
+  // (it contains the default Petstore UI). Let `swagger-ui-express`
+  // render the HTML while we only serve the static assets (JS/CSS).
   app.use('/api-docs', express.static(swaggerUiAssetPath, {
+    index: false,
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.js')) res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
       if (filePath.endsWith('.css')) res.setHeader('Content-Type', 'text/css; charset=UTF-8');
