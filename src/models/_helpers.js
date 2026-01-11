@@ -1,6 +1,13 @@
 const { pool } = require('../db');
 const { validate } = require('./schemas');
 
+async function hasColumn(table, column) {
+  const text = `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 LIMIT 1`;
+  const vals = [table, column];
+  const { rows } = await pool.query(text, vals);
+  return rows.length > 0;
+}
+
 function _ensureDataProvided(defMessage) {
   if (!defMessage) throw new Error('No data provided');
 }
@@ -54,7 +61,15 @@ async function deleteById(table, id) {
 async function getAll(table, { limit = 100, offset = 0, where = '', params = [] } = {}) {
   let text = `SELECT * FROM ${table}`;
   if (where) text += ` WHERE ${where}`;
-  text += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+
+  // Order by created_at when available; otherwise fall back to id (newest first)
+  const hasCreatedAt = await hasColumn(table, 'created_at');
+  if (hasCreatedAt) {
+    text += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+  } else {
+    text += ` ORDER BY id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+  }
+
   const values = [...params, limit, offset];
   const { rows } = await pool.query(text, values);
   return rows;
