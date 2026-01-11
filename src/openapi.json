@@ -21,12 +21,36 @@
     { "name": "Payments" },
     { "name": "Purchase Orders" },
     { "name": "Expenses" },
-    { "name": "Returns" }
+    { "name": "Returns" },
+    { "name": "Auth" }
   ],
   "paths": {
     "/api/branches": {
       "get": { "tags": ["Branches"], "summary": "List branches", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Branches"], "summary": "Create branch", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Branches"],
+        "summary": "Create branch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BranchCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedBranchResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/branches/{id}": {
       "get": { "tags": ["Branches"], "summary": "Get branch", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -36,7 +60,30 @@
 
     "/api/sales-channels": {
       "get": { "tags": ["Sales Channels"], "summary": "List sales channels", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Sales Channels"], "summary": "Create sales channel", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Sales Channels"],
+        "summary": "Create sales channel",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SalesChannelCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedSalesChannelResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/sales-channels/{id}": {
       "get": { "tags": ["Sales Channels"], "summary": "Get sales channel", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -46,7 +93,30 @@
 
     "/api/users": {
       "get": { "tags": ["Users"], "summary": "List users", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Users"], "summary": "Create user", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedUserResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/users/{id}": {
       "get": { "tags": ["Users"], "summary": "Get user", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -54,9 +124,61 @@
       "delete": { "tags": ["Users"], "summary": "Delete user", "responses": { "204": { "description": "No content" } } }
     },
 
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "User login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "404": { "description": "Not Found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+
     "/api/customers": {
       "get": { "tags": ["Customers"], "summary": "List customers", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Customers"], "summary": "Create customer", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Customers"],
+        "summary": "Create customer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CustomerCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedCustomerResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/customers/{id}": {
       "get": { "tags": ["Customers"], "summary": "Get customer", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -66,7 +188,30 @@
 
     "/api/suppliers": {
       "get": { "tags": ["Suppliers"], "summary": "List suppliers", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Suppliers"], "summary": "Create supplier", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Suppliers"],
+        "summary": "Create supplier",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SupplierCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedSupplierResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/suppliers/{id}": {
       "get": { "tags": ["Suppliers"], "summary": "Get supplier", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -76,7 +221,30 @@
 
     "/api/categories": {
       "get": { "tags": ["Categories"], "summary": "List categories", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Categories"], "summary": "Create category", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Categories"],
+        "summary": "Create category",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CategoryCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedCategoryResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/categories/{id}": {
       "get": { "tags": ["Categories"], "summary": "Get category", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -86,7 +254,30 @@
 
     "/api/products": {
       "get": { "tags": ["Products"], "summary": "List products", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Products"], "summary": "Create product", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Products"],
+        "summary": "Create product",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ProductCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedProductResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/products/{id}": {
       "get": { "tags": ["Products"], "summary": "Get product", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -96,7 +287,30 @@
 
     "/api/product-variants": {
       "get": { "tags": ["Product Variants"], "summary": "List product variants", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Product Variants"], "summary": "Create product variant", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Product Variants"],
+        "summary": "Create product variant",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ProductVariantCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedProductVariantResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/product-variants/{id}": {
       "get": { "tags": ["Product Variants"], "summary": "Get product variant", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -106,7 +320,30 @@
 
     "/api/inventories": {
       "get": { "tags": ["Inventories"], "summary": "List inventories", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Inventories"], "summary": "Create inventory", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Inventories"],
+        "summary": "Create inventory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/InventoryCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedInventoryResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/inventories/{id}": {
       "get": { "tags": ["Inventories"], "summary": "Get inventory", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -116,7 +353,30 @@
 
     "/api/orders": {
       "get": { "tags": ["Orders"], "summary": "List orders", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Orders"], "summary": "Create order", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Orders"],
+        "summary": "Create order",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/OrderCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedOrderResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/orders/{id}": {
       "get": { "tags": ["Orders"], "summary": "Get order", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -126,7 +386,30 @@
 
     "/api/order-items": {
       "get": { "tags": ["Order Items"], "summary": "List order items", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Order Items"], "summary": "Create order item", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Order Items"],
+        "summary": "Create order item",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/OrderItemCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedOrderItemResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/order-items/{id}": {
       "get": { "tags": ["Order Items"], "summary": "Get order item", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -136,7 +419,30 @@
 
     "/api/payments": {
       "get": { "tags": ["Payments"], "summary": "List payments", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Payments"], "summary": "Create payment", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Payments"],
+        "summary": "Create payment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PaymentCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedPaymentResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/payments/{id}": {
       "get": { "tags": ["Payments"], "summary": "Get payment", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -146,7 +452,30 @@
 
     "/api/purchase-orders": {
       "get": { "tags": ["Purchase Orders"], "summary": "List purchase orders", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Purchase Orders"], "summary": "Create purchase order", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Purchase Orders"],
+        "summary": "Create purchase order",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PurchaseOrderCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedPurchaseOrderResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/purchase-orders/{id}": {
       "get": { "tags": ["Purchase Orders"], "summary": "Get purchase order", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -156,7 +485,30 @@
 
     "/api/expenses": {
       "get": { "tags": ["Expenses"], "summary": "List expenses", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Expenses"], "summary": "Create expense", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Expenses"],
+        "summary": "Create expense",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ExpenseCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedExpenseResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/expenses/{id}": {
       "get": { "tags": ["Expenses"], "summary": "Get expense", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
@@ -166,12 +518,411 @@
 
     "/api/returns": {
       "get": { "tags": ["Returns"], "summary": "List returns", "responses": { "200": { "description": "OK" } } },
-      "post": { "tags": ["Returns"], "summary": "Create return", "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "tags": ["Returns"],
+        "summary": "Create return",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReturnCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedReturnResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     },
     "/api/returns/{id}": {
       "get": { "tags": ["Returns"], "summary": "Get return", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
       "put": { "tags": ["Returns"], "summary": "Update return", "responses": { "200": { "description": "Updated" } } },
       "delete": { "tags": ["Returns"], "summary": "Delete return", "responses": { "204": { "description": "No content" } } }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UserCreate": {
+        "type": "object",
+        "properties": {
+          "full_name": { "type": "string", "example": "Jane Doe" },
+          "phone": { "type": "string", "example": "+1234567890" },
+          "email": { "type": "string", "format": "email", "example": "jane@example.com" },
+          "password": { "type": "string", "format": "password" },
+          "role": { "type": "string", "enum": ["admin", "staff", "cashier"], "example": "staff" },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "is_active": { "type": "boolean", "default": true }
+        },
+        "required": ["phone", "password"]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "full_name": { "type": "string" },
+          "phone": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "enum": ["admin","staff","cashier"] },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "is_active": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedUserResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean", "example": true },
+          "data": { "$ref": "#/components/schemas/User" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "phone": { "type": "string", "example": "+639088877967" },
+          "email": { "type": "string", "format": "email", "example": "jane@example.com" },
+          "password": { "type": "string", "format": "password" }
+        },
+        "required": ["password"],
+        "description": "Provide either `phone` or `email` together with `password`."
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean", "example": true },
+          "data": { "$ref": "#/components/schemas/User" }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean", "example": false },
+          "error": { "type": "string" }
+        }
+      },
+      "BranchCreate": {
+        "type": "object",
+        "properties": {
+          "branch_name": { "type": "string" },
+          "address": { "type": "string" },
+          "phone": { "type": "string" },
+          "is_main": { "type": "boolean", "default": false }
+        },
+        "required": ["branch_name"]
+      },
+      "Branch": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "branch_name": { "type": "string" },
+          "address": { "type": "string" },
+          "phone": { "type": "string" },
+          "is_main": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedBranchResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/Branch" } } },
+      "SalesChannelCreate": {
+        "type": "object",
+        "properties": {
+          "channel_name": { "type": "string" }
+        },
+        "required": ["channel_name"]
+      },
+      "SalesChannel": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "channel_name": { "type": "string" }
+        }
+      },
+      "CreatedSalesChannelResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/SalesChannel" } } },
+      "CustomerCreate": {
+        "type": "object",
+        "properties": {
+          "full_name": { "type": "string" },
+          "phone": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "customer_type": { "type": "string", "enum": ["online","walk-in"] }
+        },
+        "required": ["full_name","phone"]
+      },
+      "Customer": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "full_name": { "type": "string" },
+          "phone": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "customer_type": { "type": "string", "enum": ["online","walk-in"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedCustomerResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/Customer" } } },
+      "SupplierCreate": {
+        "type": "object",
+        "properties": {
+          "supplier_name": { "type": "string" },
+          "phone": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "address": { "type": "string" },
+          "supplier_type": { "type": "string", "enum": ["online","physical","both"] },
+          "notes": { "type": "string" }
+        },
+        "required": ["phone"]
+      },
+      "Supplier": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "supplier_name": { "type": "string" },
+          "phone": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "address": { "type": "string" },
+          "supplier_type": { "type": "string", "enum": ["online","physical","both"] },
+          "notes": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedSupplierResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/Supplier" } } },
+      "CategoryCreate": {
+        "type": "object",
+        "properties": {
+          "category_name": { "type": "string" },
+          "parent_id": { "type": "string", "format": "uuid" }
+        },
+        "required": ["category_name"]
+      },
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "category_name": { "type": "string" },
+          "parent_id": { "type": "string", "format": "uuid" }
+        }
+      },
+      "CreatedCategoryResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/Category" } } },
+      "ProductCreate": {
+        "type": "object",
+        "properties": {
+          "product_name": { "type": "string" },
+          "description": { "type": "string" },
+          "category_id": { "type": "string", "format": "uuid" },
+          "brand": { "type": "string" },
+          "status": { "type": "string", "enum": ["active","archived"] }
+        },
+        "required": ["product_name"]
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "product_name": { "type": "string" },
+          "description": { "type": "string" },
+          "category_id": { "type": "string", "format": "uuid" },
+          "brand": { "type": "string" },
+          "status": { "type": "string", "enum": ["active","archived"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedProductResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/Product" } } },
+      "ProductVariantCreate": {
+        "type": "object",
+        "properties": {
+          "product_id": { "type": "string", "format": "uuid" },
+          "sku": { "type": "string" },
+          "class": { "type": "string" },
+          "product_type": { "type": "string" },
+          "brand": { "type": "string" },
+          "size": { "type": "string" },
+          "color": { "type": "string" },
+          "price": { "type": "number", "format": "double" },
+          "cost_price": { "type": "number", "format": "double" }
+        },
+        "required": ["product_id"]
+      },
+      "ProductVariant": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "product_id": { "type": "string", "format": "uuid" },
+          "sku": { "type": "string" },
+          "class": { "type": "string" },
+          "product_type": { "type": "string" },
+          "brand": { "type": "string" },
+          "size": { "type": "string" },
+          "color": { "type": "string" },
+          "price": { "type": "number", "format": "double" },
+          "cost_price": { "type": "number", "format": "double" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedProductVariantResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/ProductVariant" } } },
+      "InventoryCreate": {
+        "type": "object",
+        "properties": {
+          "branch_id": { "type": "string", "format": "uuid" },
+          "product_variant_id": { "type": "string", "format": "uuid" },
+          "quantity_on_hand": { "type": "integer" },
+          "reorder_level": { "type": "integer" }
+        },
+        "required": ["branch_id","product_variant_id"]
+      },
+      "Inventory": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "product_variant_id": { "type": "string", "format": "uuid" },
+          "quantity_on_hand": { "type": "integer" },
+          "reorder_level": { "type": "integer" }
+        }
+      },
+      "CreatedInventoryResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/Inventory" } } },
+      "OrderCreate": {
+        "type": "object",
+        "properties": {
+          "order_number": { "type": "string" },
+          "customer_id": { "type": "string", "format": "uuid" },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "sales_channel_id": { "type": "string", "format": "uuid" },
+          "order_status": { "type": "string" },
+          "total_amount": { "type": "number", "format": "double" }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "order_number": { "type": "string" },
+          "customer_id": { "type": "string", "format": "uuid" },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "sales_channel_id": { "type": "string", "format": "uuid" },
+          "order_status": { "type": "string" },
+          "total_amount": { "type": "number", "format": "double" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedOrderResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/Order" } } },
+      "OrderItemCreate": {
+        "type": "object",
+        "properties": {
+          "order_id": { "type": "string", "format": "uuid" },
+          "product_variant_id": { "type": "string", "format": "uuid" },
+          "quantity": { "type": "integer" },
+          "unit_price": { "type": "number", "format": "double" }
+        },
+        "required": ["order_id","product_variant_id"]
+      },
+      "OrderItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "order_id": { "type": "string", "format": "uuid" },
+          "product_variant_id": { "type": "string", "format": "uuid" },
+          "quantity": { "type": "integer" },
+          "unit_price": { "type": "number", "format": "double" },
+          "subtotal": { "type": "number", "format": "double" }
+        }
+      },
+      "CreatedOrderItemResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/OrderItem" } } },
+      "PaymentCreate": {
+        "type": "object",
+        "properties": {
+          "order_id": { "type": "string", "format": "uuid" },
+          "payment_method": { "type": "string", "enum": ["cash","gcash","bank_transfer","card","cod"] },
+          "amount": { "type": "number", "format": "double" },
+          "received_by": { "type": "string", "format": "uuid" }
+        },
+        "required": ["order_id","payment_method","amount"]
+      },
+      "Payment": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "order_id": { "type": "string", "format": "uuid" },
+          "payment_method": { "type": "string" },
+          "amount": { "type": "number", "format": "double" },
+          "received_by": { "type": "string", "format": "uuid" },
+          "payment_date": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedPaymentResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/Payment" } } },
+      "PurchaseOrderCreate": {
+        "type": "object",
+        "properties": {
+          "supplier_id": { "type": "string", "format": "uuid" },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "po_number": { "type": "string" },
+          "status": { "type": "string" },
+          "total_cost": { "type": "number", "format": "double" }
+        }
+      },
+      "PurchaseOrder": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "supplier_id": { "type": "string", "format": "uuid" },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "po_number": { "type": "string" },
+          "status": { "type": "string" },
+          "total_cost": { "type": "number", "format": "double" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedPurchaseOrderResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/PurchaseOrder" } } },
+      "ExpenseCreate": {
+        "type": "object",
+        "properties": {
+          "branch_id": { "type": "string", "format": "uuid" },
+          "expense_type": { "type": "string" },
+          "description": { "type": "string" },
+          "amount": { "type": "number", "format": "double" },
+          "expense_date": { "type": "string", "format": "date" }
+        }
+      },
+      "Expense": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "expense_type": { "type": "string" },
+          "description": { "type": "string" },
+          "amount": { "type": "number", "format": "double" },
+          "expense_date": { "type": "string", "format": "date" }
+        }
+      },
+      "CreatedExpenseResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/Expense" } } },
+      "ReturnCreate": {
+        "type": "object",
+        "properties": {
+          "order_id": { "type": "string", "format": "uuid" },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "reason": { "type": "string" },
+          "return_status": { "type": "string", "enum": ["pending","approved","rejected"] }
+        },
+        "required": ["order_id"]
+      },
+      "Return": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "order_id": { "type": "string", "format": "uuid" },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "reason": { "type": "string" },
+          "return_status": { "type": "string", "enum": ["pending","approved","rejected"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedReturnResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/Return" } } }
     }
   }
 }

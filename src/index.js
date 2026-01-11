@@ -10,6 +10,9 @@ app.use(morgan('dev'));
 // API routes
 const apiRouter = require('./routes/api');
 app.use('/api', apiRouter);
+// Auth routes (login)
+const authRouter = require('./routes/auth');
+app.use('/api/auth', authRouter);
 
 // Swagger / OpenAPI UI
 const swaggerUi = require('swagger-ui-express');
