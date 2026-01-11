@@ -1,10 +1,61 @@
 require('dotenv').config();
 const express = require('express');
 const morgan = require('morgan');
+const cors = require('cors');
 const { pool, connectWithRetry, closePool } = require('./db');
 
 const app = express();
 app.use(express.json());
+// CORS configuration: set allowed origins via CORS_ALLOWED_ORIGINS env var
+// Example: CORS_ALLOWED_ORIGINS="https://maevencollections.com,https://www.maevencollections.com,*.webcontainer-api.io"
+const rawAllowed = process.env.CORS_ALLOWED_ORIGINS || process.env.CORS_ORIGIN || '';
+const allowedOrigins = rawAllowed.split(',').map(s => s.trim()).filter(Boolean);
+
+// Simple request logger for debugging origin-related issues
+app.use((req, res, next) => {
+  const origin = req.headers.origin || '(none)';
+  // only log for requests that look cross-origin
+  if (origin && origin !== '(none)') {
+    console.log(`[CORS] Incoming request origin=${origin} path=${req.path} method=${req.method}`);
+  }
+  next();
+});
+
+// Helper to test if an origin is allowed. Supports exact matches, a single '*' to allow all,
+// and wildcard subdomains like '*.webcontainer-api.io'.
+function isOriginAllowed(origin, allowedList) {
+  if (!allowedList || allowedList.length === 0) return false;
+  if (!origin) return true; // non-browser clients (curl, server) have no Origin header
+  if (allowedList.indexOf('*') !== -1) return true;
+  for (const a of allowedList) {
+    if (a === origin) return true;
+    if (a.startsWith('*.')) {
+      const root = a.slice(1); // `.example.com`
+      if (origin.endsWith(root)) return true;
+    }
+  }
+  return false;
+}
+
+if (allowedOrigins.length === 0) {
+  // No origins configured: enable permissive CORS (useful for local/dev).
+  // In production, set `CORS_ALLOWED_ORIGINS` to a comma-separated list of allowed origins.
+  app.use(cors({ origin: true, credentials: true }));
+} else {
+  app.use(cors({
+    origin: function(origin, callback) {
+      // allow requests with no origin (like mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      if (isOriginAllowed(origin, allowedOrigins)) return callback(null, true);
+      console.warn(`[CORS] Rejected origin=${origin}`);
+      return callback(new Error('CORS policy: origin not allowed'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+  }));
+  app.options('*', cors());
+}
 app.use(morgan('dev'));
 
 // API routes
