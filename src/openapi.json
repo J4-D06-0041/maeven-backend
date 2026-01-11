@@ -923,6 +923,75 @@
         }
       },
       "CreatedReturnResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/Return" } } }
+      ,
+      "InventoryMovementCreate": {
+        "type": "object",
+        "properties": {
+          "branch_id": { "type": "string", "format": "uuid" },
+          "product_variant_id": { "type": "string", "format": "uuid" },
+          "movement_type": { "type": "string", "enum": ["sale","restock","return","transfer","adjustment"] },
+          "quantity": { "type": "number" },
+          "reference_type": { "type": "string" },
+          "reference_id": { "type": "string", "format": "uuid" }
+        },
+        "required": ["movement_type","quantity"]
+      },
+      "InventoryMovement": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "product_variant_id": { "type": "string", "format": "uuid" },
+          "movement_type": { "type": "string", "enum": ["sale","restock","return","transfer","adjustment"] },
+          "quantity": { "type": "number" },
+          "reference_type": { "type": "string" },
+          "reference_id": { "type": "string", "format": "uuid" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedInventoryMovementResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/InventoryMovement" } } },
+
+      "PurchaseOrderItemCreate": {
+        "type": "object",
+        "properties": {
+          "purchase_order_id": { "type": "string", "format": "uuid" },
+          "product_variant_id": { "type": "string", "format": "uuid" },
+          "quantity": { "type": "number" },
+          "cost_price": { "type": "number", "format": "double" }
+        },
+        "required": ["purchase_order_id","quantity"]
+      },
+      "PurchaseOrderItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "purchase_order_id": { "type": "string", "format": "uuid" },
+          "product_variant_id": { "type": "string", "format": "uuid" },
+          "quantity": { "type": "number" },
+          "cost_price": { "type": "number", "format": "double" }
+        }
+      },
+      "CreatedPurchaseOrderItemResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/PurchaseOrderItem" } } },
+
+      "ReturnItemCreate": {
+        "type": "object",
+        "properties": {
+          "return_id": { "type": "string", "format": "uuid" },
+          "product_variant_id": { "type": "string", "format": "uuid" },
+          "quantity": { "type": "number" }
+        },
+        "required": ["return_id","quantity"]
+      },
+      "ReturnItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "return_id": { "type": "string", "format": "uuid" },
+          "product_variant_id": { "type": "string", "format": "uuid" },
+          "quantity": { "type": "number" }
+        }
+      },
+      "CreatedReturnItemResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/ReturnItem" } } }
     }
   }
 }
