@@ -69,6 +69,14 @@ app.use('/api/auth', authRouter);
 const swaggerUi = require('swagger-ui-express');
 const openapi = require('./openapi.json');
 const path = require('path');
+// Allow overriding the OpenAPI server URL via environment variables so
+// the examples in the Swagger UI call the deployed API instead of
+// `http://localhost:3000`.
+const openapiServerFromEnv = process.env.OPENAPI_SERVER || process.env.BASE_URL || process.env.API_BASE_URL;
+if (openapiServerFromEnv) {
+  const normalized = String(openapiServerFromEnv).replace(/\/+$/g, '');
+  openapi.servers = [{ url: normalized }];
+}
 // Serve swagger-ui static assets directly (ensure correct MIME types on some hosts)
 try {
   const swaggerUiDist = require('swagger-ui-dist');

@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "description": "API spec with endpoints grouped by tags."
   },
-  "servers": [{ "url": "http://localhost:3000" }],
+  "servers": [{ "url": "https://api.maevencollections.com" }],
   "tags": [
     { "name": "Branches" },
     { "name": "Sales Channels" },
