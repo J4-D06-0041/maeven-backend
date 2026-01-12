@@ -74,6 +74,7 @@ async function createSchema() {
         full_name VARCHAR(255) NOT NULL,
         phone VARCHAR(100) NOT NULL UNIQUE,
         email VARCHAR(255),
+        address TEXT,
         customer_type customer_type DEFAULT 'walk-in',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
       );

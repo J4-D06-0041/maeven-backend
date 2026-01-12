@@ -26,6 +26,7 @@ const schemas = {
     full_name: { type: 'string', required: true },
     phone: { type: 'string', required: true },
     email: { type: 'string', allowNull: true },
+    address: { type: 'text', allowNull: true },
     customer_type: { type: 'enum', values: ['online', 'walk-in'], allowNull: false },
   },
   suppliers: {
