@@ -100,6 +100,7 @@ async function createSchema() {
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         product_name VARCHAR(255),
         description TEXT,
+        photo_url TEXT,
         category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
         brand VARCHAR(255),
         status product_status DEFAULT 'active',
@@ -212,6 +213,9 @@ async function createSchema() {
         expense_date DATE
       );
     `);
+
+    // add photo_url to products if missing (safe for existing DBs)
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS photo_url TEXT;`);
 
     await client.query('COMMIT');
     console.log('Schema initialization complete');

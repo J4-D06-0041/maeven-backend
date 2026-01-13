@@ -44,6 +44,7 @@ const schemas = {
   products: {
     product_name: { type: 'string', allowNull: true },
     description: { type: 'text', allowNull: true },
+    photo_url: { type: 'string', allowNull: true },
     category_id: { type: 'uuid', allowNull: true },
     brand: { type: 'string', allowNull: true },
     status: { type: 'enum', values: ['active', 'archived'], allowNull: false },

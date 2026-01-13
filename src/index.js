@@ -6,6 +6,8 @@ const { pool, connectWithRetry, closePool } = require('./db');
 
 const app = express();
 app.use(express.json());
+// Also accept URL-encoded form bodies (e.g., HTML forms or some clients)
+app.use(express.urlencoded({ extended: true }));
 // CORS configuration: set allowed origins via CORS_ALLOWED_ORIGINS env var
 // Example: CORS_ALLOWED_ORIGINS="https://maevencollections.com,https://www.maevencollections.com,*.webcontainer-api.io"
 const rawAllowed = process.env.CORS_ALLOWED_ORIGINS || process.env.CORS_ORIGIN || '';
