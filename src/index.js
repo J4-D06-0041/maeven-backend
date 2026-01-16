@@ -79,25 +79,31 @@ if (openapiServerFromEnv) {
   const normalized = String(openapiServerFromEnv).replace(/\/+$/g, '');
   openapi.servers = [{ url: normalized }];
 }
-// Serve swagger-ui static assets directly (ensure correct MIME types on some hosts)
+// Let `swagger-ui-express` serve the Swagger UI HTML and assets.
+// Avoid mounting the `swagger-ui-dist` static files here to prevent
+// asset/index.html path conflicts when consumers request asset URLs.
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapi));
+
+// Some swagger-ui-dist releases name the main stylesheet `index.css` while
+// the generated HTML references `swagger-ui.css`. Add explicit mappings
+// so requests for `swagger-ui.css` and favicons are served correctly.
 try {
   const swaggerUiDist = require('swagger-ui-dist');
   const swaggerUiAssetPath = swaggerUiDist.getAbsoluteFSPath();
-  // Prevent the static `index.html` from swagger-ui-dist being served
-  // (it contains the default Petstore UI). Let `swagger-ui-express`
-  // render the HTML while we only serve the static assets (JS/CSS).
-  app.use('/api-docs', express.static(swaggerUiAssetPath, {
-    index: false,
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith('.js')) res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
-      if (filePath.endsWith('.css')) res.setHeader('Content-Type', 'text/css; charset=UTF-8');
-    }
-  }));
+  app.get('/api-docs/swagger-ui.css', (req, res) => {
+    res.type('text/css; charset=UTF-8');
+    return res.sendFile(path.join(swaggerUiAssetPath, 'index.css'));
+  });
+  app.get('/api-docs/favicon-32x32.png', (req, res) => {
+    return res.sendFile(path.join(swaggerUiAssetPath, 'favicon-32x32.png'));
+  });
+  app.get('/api-docs/favicon-16x16.png', (req, res) => {
+    return res.sendFile(path.join(swaggerUiAssetPath, 'favicon-16x16.png'));
+  });
 } catch (err) {
-  // if swagger-ui-dist is not available, fall back to swagger-ui-express assets
+  // ignore if swagger-ui-dist is not installed
 }
-
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapi));
 
 app.get('/health', async (req, res) => {
   try {

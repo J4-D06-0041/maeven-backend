@@ -108,11 +108,14 @@ const schemas = {
     quantity: { type: 'number', required: true },
   },
   purchase_orders: {
-    supplier_id: { type: 'uuid', allowNull: true },
-    branch_id: { type: 'uuid', allowNull: true },
-    po_number: { type: 'string', allowNull: true },
-    status: { type: 'enum', values: ['ordered','received','cancelled'], allowNull: false },
+    supplier_id: { type: 'uuid', required: true },
+    branch_id: { type: 'uuid', required: true },
+    po_number: { type: 'string', required: true },
+    status: { type: 'enum', values: ['ordered','received','cancelled'], required: true },
     total_cost: { type: 'numeric', allowNull: true },
+    shipping_cost: { type: 'numeric', allowNull: true },
+    tipping_cost: { type: 'numeric', allowNull: true },
+    miscellaneous_cost: { type: 'numeric', allowNull: true },
   },
   purchase_order_items: {
     purchase_order_id: { type: 'uuid', required: true },

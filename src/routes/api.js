@@ -16,6 +16,7 @@ const ordersModel = require('../models/orders');
 const orderItemsModel = require('../models/orderItems');
 const paymentsModel = require('../models/payments');
 const purchaseOrdersModel = require('../models/purchaseOrders');
+const purchaseOrderItemsModel = require('../models/purchaseOrderItems');
 const expensesModel = require('../models/expenses');
 const returnsModel = require('../models/returns');
 
@@ -51,6 +52,21 @@ wire('orders', ordersModel, { resourceName: 'order' });
 wire('order-items', orderItemsModel, { resourceName: 'order_item' });
 wire('payments', paymentsModel, { resourceName: 'payment' });
 wire('purchase-orders', purchaseOrdersModel, { resourceName: 'purchase_order' });
+wire('purchase-order-items', purchaseOrderItemsModel, { resourceName: 'purchase_order_item' });
+// Get purchase orders with aggregated item totals (items_total, items_count)
+router.get('/purchase-orders-with-totals', async (req, res) => {
+  try {
+    const limit = Number(req.query.limit) || 100;
+    const offset = Number(req.query.offset) || 0;
+    const where = req.query.where || '';
+    // Note: `where` should be a SQL fragment and `params` may be passed as a JSON array in query (not common).
+    const params = [];
+    const items = await purchaseOrdersModel.listWithItemTotals({ limit, offset, where, params });
+    return res.json({ ok: true, data: items });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
 wire('expenses', expensesModel, { resourceName: 'expense' });
 wire('returns', returnsModel, { resourceName: 'return' });
 

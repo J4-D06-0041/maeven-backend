@@ -20,6 +20,7 @@
     { "name": "Order Items" },
     { "name": "Payments" },
     { "name": "Purchase Orders" },
+    { "name": "Purchase Order Items" },
     { "name": "Expenses" },
     { "name": "Returns" },
     { "name": "Auth" }
@@ -482,6 +483,59 @@
       "put": { "tags": ["Purchase Orders"], "summary": "Update purchase order", "responses": { "200": { "description": "Updated" } } },
       "delete": { "tags": ["Purchase Orders"], "summary": "Delete purchase order", "responses": { "204": { "description": "No content" } } }
     },
+    "/api/purchase-orders-with-totals": {
+      "get": {
+        "tags": ["Purchase Orders"],
+        "summary": "List purchase orders with item totals",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PurchaseOrdersWithTotalsResponse" }
+              }
+            }
+          },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+    "/api/purchase-order-items": {
+      "get": { "tags": ["Purchase Order Items"], "summary": "List purchase order items", "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "tags": ["Purchase Order Items"],
+        "summary": "Create purchase order item",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PurchaseOrderItemCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedPurchaseOrderItemResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+    "/api/purchase-order-items/{id}": {
+      "get": { "tags": ["Purchase Order Items"], "summary": "Get purchase order item", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Purchase Order Items"], "summary": "Update purchase order item", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Purchase Order Items"], "summary": "Delete purchase order item", "responses": { "204": { "description": "No content" } } }
+    },
 
     "/api/expenses": {
       "get": { "tags": ["Expenses"], "summary": "List expenses", "responses": { "200": { "description": "OK" } } },
@@ -862,9 +916,13 @@
           "supplier_id": { "type": "string", "format": "uuid" },
           "branch_id": { "type": "string", "format": "uuid" },
           "po_number": { "type": "string" },
-          "status": { "type": "string" },
-          "total_cost": { "type": "number", "format": "double" }
-        }
+          "status": { "type": "string", "enum": ["ordered","received","cancelled"] },
+          "total_cost": { "type": "number", "format": "double" },
+          "shipping_cost": { "type": "number", "format": "double" },
+          "tipping_cost": { "type": "number", "format": "double" },
+          "miscellaneous_cost": { "type": "number", "format": "double" }
+        },
+        "required": ["supplier_id","branch_id","po_number","status"]
       },
       "PurchaseOrder": {
         "type": "object",
@@ -873,12 +931,74 @@
           "supplier_id": { "type": "string", "format": "uuid" },
           "branch_id": { "type": "string", "format": "uuid" },
           "po_number": { "type": "string" },
-          "status": { "type": "string" },
+          "status": { "type": "string", "enum": ["ordered","received","cancelled"] },
           "total_cost": { "type": "number", "format": "double" },
+          "shipping_cost": { "type": "number", "format": "double" },
+          "tipping_cost": { "type": "number", "format": "double" },
+          "miscellaneous_cost": { "type": "number", "format": "double" },
           "created_at": { "type": "string", "format": "date-time" }
         }
       },
       "CreatedPurchaseOrderResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/PurchaseOrder" } } },
+      "PurchaseOrderWithTotals": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "supplier_id": { "type": "string", "format": "uuid" },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "po_number": { "type": "string" },
+          "status": { "type": "string", "enum": ["ordered","received","cancelled"] },
+          "total_cost": { "type": "number", "format": "double" },
+          "shipping_cost": { "type": "number", "format": "double" },
+          "tipping_cost": { "type": "number", "format": "double" },
+          "miscellaneous_cost": { "type": "number", "format": "double" },
+          "items_total": { "type": "number", "format": "double", "description": "Sum of quantity * unit_price across purchase order items" },
+          "items_count": { "type": "integer", "description": "Number of items on the purchase order" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+        ,
+        "example": {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "supplier_id": "22222222-2222-2222-2222-222222222222",
+          "branch_id": "33333333-3333-3333-3333-333333333333",
+          "po_number": "PO-1001",
+          "status": "ordered",
+          "total_cost": 1500.5,
+          "shipping_cost": 50.0,
+          "tipping_cost": 0.0,
+          "miscellaneous_cost": 10.0,
+          "items_total": 1440.5,
+          "items_count": 3,
+          "created_at": "2026-01-15T12:34:56Z"
+        }
+      },
+      "PurchaseOrdersWithTotalsResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean", "example": true },
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/PurchaseOrderWithTotals" } }
+        }
+        ,
+        "example": {
+          "ok": true,
+          "data": [
+            {
+              "id": "11111111-1111-1111-1111-111111111111",
+              "supplier_id": "22222222-2222-2222-2222-222222222222",
+              "branch_id": "33333333-3333-3333-3333-333333333333",
+              "po_number": "PO-1001",
+              "status": "ordered",
+              "total_cost": 1500.5,
+              "shipping_cost": 50.0,
+              "tipping_cost": 0.0,
+              "miscellaneous_cost": 10.0,
+              "items_total": 1440.5,
+              "items_count": 3,
+              "created_at": "2026-01-15T12:34:56Z"
+            }
+          ]
+        }
+      },
       "ExpenseCreate": {
         "type": "object",
         "properties": {

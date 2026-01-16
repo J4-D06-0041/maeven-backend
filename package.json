@@ -21,7 +21,8 @@
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.0",
     "swagger-ui-express": "^4.6.3",
-    "swagger-ui-dist": "^4.15.0"
+    "swagger-ui-dist": "^4.15.0",
+    "mime": "^3.0.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"

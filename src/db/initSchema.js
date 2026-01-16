@@ -188,12 +188,15 @@ async function createSchema() {
 
       CREATE TABLE IF NOT EXISTS purchase_orders (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
-        branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
-        po_number VARCHAR(255) UNIQUE,
-        status purchase_order_status DEFAULT 'ordered',
-        total_cost NUMERIC(12,2) DEFAULT 0,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        supplier_id UUID NOT NULL REFERENCES suppliers(id),
+        branch_id UUID NOT NULL REFERENCES branches(id),
+        po_number VARCHAR(50) NOT NULL UNIQUE,
+        status VARCHAR(30) NOT NULL CHECK (status IN ('ordered','received','cancelled')),
+        total_cost NUMERIC(12,2),
+        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        shipping_cost NUMERIC(12,2) NOT NULL DEFAULT 0,
+        tipping_cost NUMERIC(12,2) NOT NULL DEFAULT 0,
+        miscellaneous_cost NUMERIC(12,2) NOT NULL DEFAULT 0
       );
 
       CREATE TABLE IF NOT EXISTS purchase_order_items (
