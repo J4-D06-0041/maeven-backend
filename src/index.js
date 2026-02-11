@@ -80,10 +80,9 @@ if (openapiServerFromEnv) {
   openapi.servers = [{ url: normalized }];
 }
 // Let `swagger-ui-express` serve the Swagger UI HTML and assets.
-// Avoid mounting the `swagger-ui-dist` static files here to prevent
-// asset/index.html path conflicts when consumers request asset URLs.
-
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapi));
+// Configure Swagger UI to fetch the live OpenAPI JSON from the API
+// (so edits to `src/openapi.json` are reflected without rebuilding the UI bundle).
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(null, { swaggerUrl: '/api/openapi.json' }));
 
 // Some swagger-ui-dist releases name the main stylesheet `index.css` while
 // the generated HTML references `swagger-ui.css`. Add explicit mappings

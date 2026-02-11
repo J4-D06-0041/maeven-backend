@@ -1,5 +1,6 @@
 const express = require('express');
-const openapi = require('../openapi.json');
+const fs = require('fs');
+const path = require('path');
 const { createService } = require('../services/genericService');
 const { createController } = require('../controllers/genericController');
 
@@ -27,8 +28,14 @@ const router = express.Router();
 
 // Serve the OpenAPI JSON for import tools (e.g., bolt.new)
 router.get('/openapi.json', (req, res) => {
-  res.type('application/json');
-  return res.json(openapi);
+  try {
+    const specPath = path.join(__dirname, '..', 'openapi.json');
+    const raw = fs.readFileSync(specPath, 'utf8');
+    res.type('application/json');
+    return res.json(JSON.parse(raw));
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 function wire(path, model, opts = {}) {
@@ -53,6 +60,18 @@ wire('product-variants', productVariantsModel, { resourceName: 'product_variant'
 wire('inventories', inventoriesModel, { resourceName: 'inventory' });
 wire('orders', ordersModel, { resourceName: 'order' });
 wire('order-items', orderItemsModel, { resourceName: 'order_item' });
+// Nested route: list items for a given order
+router.get('/orders/:orderId/items', async (req, res) => {
+  try {
+    const limit = Number(req.query.limit) || 100;
+    const offset = Number(req.query.offset) || 0;
+    const orderId = req.params.orderId;
+    const items = await orderItemsModel.list({ where: 'order_id = $1', params: [orderId], limit, offset });
+    return res.json({ ok: true, data: items });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
 wire('payments', paymentsModel, { resourceName: 'payment' });
 wire('purchase-orders', purchaseOrdersModel, { resourceName: 'purchase_order' });
 // Use a custom service for purchase order items to enforce creation rules

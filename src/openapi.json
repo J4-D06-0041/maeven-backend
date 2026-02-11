@@ -386,6 +386,34 @@
       "delete": { "tags": ["Orders"], "summary": "Delete order", "responses": { "204": { "description": "No content" } } }
     },
 
+    "/api/orders/{orderId}/items": {
+      "get": {
+        "tags": ["Orders"],
+        "summary": "List items for a specific order",
+        "parameters": [
+          { "name": "orderId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/OrderItem" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
     "/api/order-items": {
       "get": { "tags": ["Order Items"], "summary": "List order items", "responses": { "200": { "description": "OK" } } },
       "post": {
@@ -1027,8 +1055,7 @@
           "items_total": { "type": "number", "format": "double", "description": "Sum of quantity * unit_price across purchase order items" },
           "items_count": { "type": "integer", "description": "Number of items on the purchase order" },
           "created_at": { "type": "string", "format": "date-time" }
-        }
-        ,
+        },
         "example": {
           "id": "11111111-1111-1111-1111-111111111111",
           "supplier_id": "22222222-2222-2222-2222-222222222222",
