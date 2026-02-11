@@ -17,6 +17,9 @@ const orderItemsModel = require('../models/orderItems');
 const paymentsModel = require('../models/payments');
 const purchaseOrdersModel = require('../models/purchaseOrders');
 const purchaseOrderItemsModel = require('../models/purchaseOrderItems');
+const purchaseOrderEstimatesController = require('../controllers/purchaseOrderEstimatesController');
+const purchaseOrderItemService = require('../services/purchaseOrderItemService');
+const purchaseOrderService = require('../services/purchaseOrderService');
 const expensesModel = require('../models/expenses');
 const returnsModel = require('../models/returns');
 
@@ -52,7 +55,21 @@ wire('orders', ordersModel, { resourceName: 'order' });
 wire('order-items', orderItemsModel, { resourceName: 'order_item' });
 wire('payments', paymentsModel, { resourceName: 'payment' });
 wire('purchase-orders', purchaseOrdersModel, { resourceName: 'purchase_order' });
-wire('purchase-order-items', purchaseOrderItemsModel, { resourceName: 'purchase_order_item' });
+// Use a custom service for purchase order items to enforce creation rules
+const poiCtrl = createController(purchaseOrderItemService, 'purchase_order_item');
+const poiBase = '/purchase-order-items';
+router.get(poiBase, poiCtrl.list);
+router.get(`${poiBase}/:id`, poiCtrl.get);
+router.post(poiBase, poiCtrl.create);
+router.put(`${poiBase}/:id`, poiCtrl.update);
+router.delete(`${poiBase}/:id`, poiCtrl.remove);
+
+// Nested routes for purchase order estimates (under a purchase order)
+router.get('/purchase-orders/:poId/estimates', purchaseOrderEstimatesController.list);
+router.post('/purchase-orders/:poId/estimates', purchaseOrderEstimatesController.create);
+router.get('/purchase-orders/:poId/estimates/:id', purchaseOrderEstimatesController.get);
+router.put('/purchase-orders/:poId/estimates/:id', purchaseOrderEstimatesController.update);
+router.delete('/purchase-orders/:poId/estimates/:id', purchaseOrderEstimatesController.remove);
 // Get purchase orders with aggregated item totals (items_total, items_count)
 router.get('/purchase-orders-with-totals', async (req, res) => {
   try {
@@ -63,6 +80,15 @@ router.get('/purchase-orders-with-totals', async (req, res) => {
     const params = [];
     const items = await purchaseOrdersModel.listWithItemTotals({ limit, offset, where, params });
     return res.json({ ok: true, data: items });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+// Variance endpoint: estimated vs actual totals for a purchase order
+router.get('/purchase-orders/:id/variance', async (req, res) => {
+  try {
+    const data = await purchaseOrderService.getVariance(req.params.id);
+    return res.json({ ok: true, data });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }

@@ -36,7 +36,7 @@ async function createSchema() {
           CREATE TYPE return_status AS ENUM ('pending','approved','rejected');
         END IF;
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'purchase_order_status') THEN
-          CREATE TYPE purchase_order_status AS ENUM ('ordered','received','cancelled');
+          CREATE TYPE purchase_order_status AS ENUM ('draft','estimated','ordered','received','cancelled');
         END IF;
       END$$;
     `);
@@ -191,7 +191,7 @@ async function createSchema() {
         supplier_id UUID NOT NULL REFERENCES suppliers(id),
         branch_id UUID NOT NULL REFERENCES branches(id),
         po_number VARCHAR(50) NOT NULL UNIQUE,
-        status VARCHAR(30) NOT NULL CHECK (status IN ('ordered','received','cancelled')),
+        status VARCHAR(30) NOT NULL CHECK (status IN ('draft','estimated','ordered','received','cancelled')),
         total_cost NUMERIC(12,2),
         created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         shipping_cost NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -205,6 +205,17 @@ async function createSchema() {
         product_variant_id UUID REFERENCES product_variants(id) ON DELETE SET NULL,
         quantity INTEGER NOT NULL DEFAULT 1,
         cost_price NUMERIC(12,2) DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_order_estimates (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        purchase_order_id UUID REFERENCES purchase_orders(id) ON DELETE CASCADE,
+        product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+        estimated_quantity INTEGER NOT NULL CHECK (estimated_quantity > 0),
+        estimated_total_cost NUMERIC(12,2) NOT NULL CHECK (estimated_total_cost >= 0),
+        notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS expenses (

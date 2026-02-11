@@ -21,6 +21,7 @@
     { "name": "Payments" },
     { "name": "Purchase Orders" },
     { "name": "Purchase Order Items" },
+    { "name": "Purchase Order Estimates" },
     { "name": "Expenses" },
     { "name": "Returns" },
     { "name": "Auth" }
@@ -537,6 +538,44 @@
       "delete": { "tags": ["Purchase Order Items"], "summary": "Delete purchase order item", "responses": { "204": { "description": "No content" } } }
     },
 
+    "/api/purchase-orders/{poId}/estimates": {
+      "get": {
+        "tags": ["Purchase Order Estimates"],
+        "summary": "List estimates for a purchase order",
+        "parameters": [
+          { "name": "poId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "tags": ["Purchase Order Estimates"],
+        "summary": "Create purchase order estimate",
+        "parameters": [ { "name": "poId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } } ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PurchaseOrderEstimateCreate" } } }
+        },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreatedPurchaseOrderEstimateResponse" } } } }, "400": { "description": "Bad Request" } }
+      }
+    },
+
+    "/api/purchase-orders/{poId}/estimates/{id}": {
+      "get": { "tags": ["Purchase Order Estimates"], "summary": "Get estimate", "parameters": [ { "name": "poId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }, { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } } ], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Purchase Order Estimates"], "summary": "Update estimate", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Purchase Order Estimates"], "summary": "Delete estimate", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/purchase-orders/{id}/variance": {
+      "get": {
+        "tags": ["Purchase Orders"],
+        "summary": "Get estimated vs actual variance for a purchase order",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } } ],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PurchaseOrderVariance" } } } } }
+      }
+    },
+
     "/api/expenses": {
       "get": { "tags": ["Expenses"], "summary": "List expenses", "responses": { "200": { "description": "OK" } } },
       "post": {
@@ -916,13 +955,46 @@
           "supplier_id": { "type": "string", "format": "uuid" },
           "branch_id": { "type": "string", "format": "uuid" },
           "po_number": { "type": "string" },
-          "status": { "type": "string", "enum": ["ordered","received","cancelled"] },
+          "status": { "type": "string", "enum": ["draft","estimated","ordered","received","cancelled"] },
           "total_cost": { "type": "number", "format": "double" },
           "shipping_cost": { "type": "number", "format": "double" },
           "tipping_cost": { "type": "number", "format": "double" },
           "miscellaneous_cost": { "type": "number", "format": "double" }
         },
         "required": ["supplier_id","branch_id","po_number","status"]
+      },
+      "PurchaseOrderEstimateCreate": {
+        "type": "object",
+        "properties": {
+          "product_id": { "type": "string", "format": "uuid" },
+          "estimated_quantity": { "type": "integer" },
+          "estimated_total_cost": { "type": "number", "format": "double" },
+          "notes": { "type": "string" }
+        },
+        "required": ["product_id","estimated_quantity","estimated_total_cost"]
+      },
+      "PurchaseOrderEstimate": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "purchase_order_id": { "type": "string", "format": "uuid" },
+          "product_id": { "type": "string", "format": "uuid" },
+          "estimated_quantity": { "type": "integer" },
+          "estimated_total_cost": { "type": "number", "format": "double" },
+          "notes": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedPurchaseOrderEstimateResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/PurchaseOrderEstimate" } } },
+      "PurchaseOrderVariance": {
+        "type": "object",
+        "properties": {
+          "purchase_order_id": { "type": "string", "format": "uuid" },
+          "estimated_total": { "type": "number", "format": "double" },
+          "actual_total": { "type": "number", "format": "double" },
+          "variance": { "type": "number", "format": "double" }
+        }
       },
       "PurchaseOrder": {
         "type": "object",

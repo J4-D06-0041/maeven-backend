@@ -111,7 +111,7 @@ const schemas = {
     supplier_id: { type: 'uuid', required: true },
     branch_id: { type: 'uuid', required: true },
     po_number: { type: 'string', required: true },
-    status: { type: 'enum', values: ['ordered','received','cancelled'], required: true },
+    status: { type: 'enum', values: ['draft','estimated','ordered','received','cancelled'], required: true },
     total_cost: { type: 'numeric', allowNull: true },
     shipping_cost: { type: 'numeric', allowNull: true },
     tipping_cost: { type: 'numeric', allowNull: true },
