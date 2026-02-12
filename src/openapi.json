@@ -954,7 +954,9 @@
           "branch_id": { "type": "string", "format": "uuid" },
           "sales_channel_id": { "type": "string", "format": "uuid" },
           "order_status": { "type": "string" },
-          "total_amount": { "type": "number", "format": "double" }
+          "total_amount": { "type": "number", "format": "double" },
+          "discount_percentage": { "type": "number", "format": "double" },
+          "discount_amount": { "type": "number", "format": "double" }
         }
       },
       "Order": {
@@ -967,6 +969,8 @@
           "sales_channel_id": { "type": "string", "format": "uuid" },
           "order_status": { "type": "string" },
           "total_amount": { "type": "number", "format": "double" },
+          "discount_percentage": { "type": "number", "format": "double" },
+          "discount_amount": { "type": "number", "format": "double" },
           "created_at": { "type": "string", "format": "date-time" }
         }
       },

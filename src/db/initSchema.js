@@ -149,6 +149,8 @@ async function createSchema() {
         sales_channel_id UUID REFERENCES sales_channels(id) ON DELETE SET NULL,
         order_status order_status DEFAULT 'pending',
         total_amount NUMERIC(12,2) DEFAULT 0,
+        discount_percentage NUMERIC(5,2) DEFAULT 0,
+        discount_amount NUMERIC(12,2) DEFAULT 0,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
       );
 
@@ -230,6 +232,9 @@ async function createSchema() {
 
     // add photo_url to products if missing (safe for existing DBs)
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS photo_url TEXT;`);
+    // add discount fields to orders if missing (safe for existing DBs)
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_percentage NUMERIC(5,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12,2) DEFAULT 0;`);
 
     await client.query('COMMIT');
     console.log('Schema initialization complete');
