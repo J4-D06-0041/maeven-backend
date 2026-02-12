@@ -5,7 +5,8 @@
     "version": "1.0.0",
     "description": "API spec with endpoints grouped by tags."
   },
-  "servers": [{ "url": "https://api.maevencollections.com" }],
+  "servers": [{ "url": "https://api.maevencollections.com" },
+              { "url": "http://localhost:3000" }],
   "tags": [
     { "name": "Branches" },
     { "name": "Sales Channels" },
@@ -122,7 +123,31 @@
     },
     "/api/users/{id}": {
       "get": { "tags": ["Users"], "summary": "Get user", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
-      "put": { "tags": ["Users"], "summary": "Update user", "responses": { "200": { "description": "Updated" } } },
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update user",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedUserResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "404": { "description": "Not Found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      },
       "delete": { "tags": ["Users"], "summary": "Delete user", "responses": { "204": { "description": "No content" } } }
     },
 
@@ -684,6 +709,19 @@
           "is_active": { "type": "boolean", "default": true }
         },
         "required": ["phone", "password"]
+      },
+      "UserUpdate": {
+        "type": "object",
+        "description": "Fields that can be updated for a user. All properties are optional; provide only those to change.",
+        "properties": {
+          "full_name": { "type": "string" },
+          "phone": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "format": "password", "description": "Plain-text password; server will hash before saving." },
+          "role": { "type": "string", "enum": ["admin", "staff", "cashier"] },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "is_active": { "type": "boolean" }
+        }
       },
       "User": {
         "type": "object",
