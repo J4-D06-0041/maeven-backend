@@ -23,6 +23,11 @@ function createController(service, resourceName = 'resource') {
     try {
       // Allow payloads wrapped by resource name or its plural (e.g. {"customer": {...}} or {"customers": {...}})
       const payload = req.body && (req.body[resourceName] || req.body[`${resourceName}s`]) ? (req.body[resourceName] || req.body[`${resourceName}s`]) : req.body;
+      // If creating a payment, ensure `received_by` is set to the authenticated user id when available.
+      if (resourceName === 'payment' && req.user && req.user.id) {
+        // enforce that received_by is the initiating user to prevent spoofing
+        payload.received_by = req.user.id;
+      }
       const created = await service.create(payload);
       return res.status(201).json({ ok: true, data: created });
     } catch (err) {

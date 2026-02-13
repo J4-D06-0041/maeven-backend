@@ -25,6 +25,9 @@ const expensesModel = require('../models/expenses');
 const returnsModel = require('../models/returns');
 
 const router = express.Router();
+const auth = require('../middleware/auth');
+// Attach decoded user (if Authorization header with valid JWT is present)
+router.use(auth);
 
 // Serve the OpenAPI JSON for import tools (e.g., bolt.new)
 router.get('/openapi.json', (req, res) => {
@@ -44,9 +47,15 @@ function wire(path, model, opts = {}) {
   const base = `/${path}`;
   router.get(base, ctrl.list);
   router.get(`${base}/:id`, ctrl.get);
-  router.post(base, ctrl.create);
-  router.put(`${base}/:id`, ctrl.update);
-  router.delete(`${base}/:id`, ctrl.remove);
+  if (opts.requireAuth) {
+    router.post(base, auth.requireAuth, ctrl.create);
+    router.put(`${base}/:id`, auth.requireAuth, ctrl.update);
+    router.delete(`${base}/:id`, auth.requireAuth, ctrl.remove);
+  } else {
+    router.post(base, ctrl.create);
+    router.put(`${base}/:id`, ctrl.update);
+    router.delete(`${base}/:id`, ctrl.remove);
+  }
 }
 
 wire('branches', branchesModel, { resourceName: 'branch' });
@@ -72,7 +81,7 @@ router.get('/orders/:orderId/items', async (req, res) => {
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
-wire('payments', paymentsModel, { resourceName: 'payment' });
+wire('payments', paymentsModel, { resourceName: 'payment', requireAuth: true });
 wire('purchase-orders', purchaseOrdersModel, { resourceName: 'purchase_order' });
 // Use a custom service for purchase order items to enforce creation rules
 const poiCtrl = createController(purchaseOrderItemService, 'purchase_order_item');
