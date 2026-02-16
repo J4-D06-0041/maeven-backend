@@ -57,6 +57,7 @@ const schemas = {
     brand: { type: 'string', allowNull: true },
     size: { type: 'string', allowNull: true },
     color: { type: 'string', allowNull: true },
+    is_active: { type: 'boolean', allowNull: true },
     price: { type: 'numeric', allowNull: true },
     cost_price: { type: 'numeric', allowNull: true },
   },

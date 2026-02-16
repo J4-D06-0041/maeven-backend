@@ -897,6 +897,7 @@
         "type": "object",
         "properties": {
           "product_id": { "type": "string", "format": "uuid" },
+          "is_active": { "type": "boolean" },
           "sku": { "type": "string" },
           "class": { "type": "string" },
           "product_type": { "type": "string" },
@@ -907,6 +908,19 @@
           "cost_price": { "type": "number", "format": "double" }
         },
         "required": ["product_id"]
+        ,
+        "example": {
+          "product_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+          "is_active": true,
+          "sku": "PV-001",
+          "class": "Standard",
+          "product_type": "Shirt",
+          "brand": "Acme",
+          "size": "M",
+          "color": "Blue",
+          "price": 199.99,
+          "cost_price": 120.00
+        }
       },
       "ProductVariant": {
         "type": "object",
@@ -922,6 +936,21 @@
           "price": { "type": "number", "format": "double" },
           "cost_price": { "type": "number", "format": "double" },
           "created_at": { "type": "string", "format": "date-time" }
+        }
+        ,
+        "example": {
+          "id": "7b9e2d9a-9f6d-4b2b-8f2f-1a2b3c4d5e6f",
+          "product_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+          "is_active": true,
+          "sku": "PV-001",
+          "class": "Standard",
+          "product_type": "Shirt",
+          "brand": "Acme",
+          "size": "M",
+          "color": "Blue",
+          "price": 199.99,
+          "cost_price": 120.00,
+          "created_at": "2026-02-16T12:00:00Z"
         }
       },
       "CreatedProductVariantResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/ProductVariant" } } },

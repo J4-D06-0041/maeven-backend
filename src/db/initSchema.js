@@ -118,6 +118,7 @@ async function createSchema() {
         color VARCHAR(100),
         price NUMERIC(12,2) DEFAULT 0,
         cost_price NUMERIC(12,2) DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
       );
 
@@ -235,6 +236,9 @@ async function createSchema() {
     // add discount fields to orders if missing (safe for existing DBs)
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_percentage NUMERIC(5,2) DEFAULT 0;`);
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12,2) DEFAULT 0;`);
+
+    // add is_active to product_variants if missing (safe for existing DBs)
+    await client.query(`ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;`);
 
     await client.query('COMMIT');
     console.log('Schema initialization complete');

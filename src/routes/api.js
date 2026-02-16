@@ -65,7 +65,40 @@ wire('customers', customersModel, { resourceName: 'customer' });
 wire('suppliers', suppliersModel, { resourceName: 'supplier' });
 wire('categories', categoriesModel, { resourceName: 'category' });
 wire('products', productsModel, { resourceName: 'product' });
-wire('product-variants', productVariantsModel, { resourceName: 'product_variant' });
+
+// Custom wiring for product-variants to support optional `is_active` filter via query param
+{
+  const pathName = 'product-variants';
+  const svc = createService(productVariantsModel);
+  const ctrl = createController(svc, 'product_variant');
+  const base = `/${pathName}`;
+
+  // List with optional is_active filter: /api/product-variants?is_active=true
+  router.get(base, async (req, res) => {
+    try {
+      const limit = Number(req.query.limit) || 100;
+      const offset = Number(req.query.offset) || 0;
+      const whereParts = [];
+      const params = [];
+      if (req.query.is_active !== undefined) {
+        // accept "true"|"false" (string) or boolean
+        const val = (req.query.is_active === 'true' || req.query.is_active === true || req.query.is_active === '1');
+        params.push(val);
+        whereParts.push(`is_active = $${params.length}`);
+      }
+      const where = whereParts.length ? whereParts.join(' AND ') : '';
+      const items = await productVariantsModel.list({ limit, offset, where, params });
+      return res.json({ ok: true, data: items });
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.get(`${base}/:id`, ctrl.get);
+  router.post(base, ctrl.create);
+  router.put(`${base}/:id`, ctrl.update);
+  router.delete(`${base}/:id`, ctrl.remove);
+}
 wire('inventories', inventoriesModel, { resourceName: 'inventory' });
 wire('orders', ordersModel, { resourceName: 'order' });
 wire('order-items', orderItemsModel, { resourceName: 'order_item' });
