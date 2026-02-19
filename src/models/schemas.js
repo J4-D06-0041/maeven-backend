@@ -55,6 +55,7 @@ const schemas = {
     class: { type: 'string', allowNull: true },
     product_type: { type: 'string', allowNull: true },
     brand: { type: 'string', allowNull: true },
+    photo_url: { type: 'string', allowNull: true },
     size: { type: 'string', allowNull: true },
     color: { type: 'string', allowNull: true },
     is_active: { type: 'boolean', allowNull: true },

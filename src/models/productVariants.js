@@ -10,7 +10,7 @@ async function create(data) {
 // Return a single product variant joined with its product's photo_url
 async function findById(id) {
   const text = `
-    SELECT pv.*, p.photo_url, p.product_name
+    SELECT pv.*, p.product_name
     FROM product_variants pv
     LEFT JOIN products p ON pv.product_id = p.id
     WHERE pv.id = $1
@@ -19,17 +19,16 @@ async function findById(id) {
   const { rows } = await pool.query(text, [id]);
   const row = rows[0] || null;
   if (!row) return null;
-  const product = { name: row.product_name || null, photo_url: row.photo_url || null };
-  // remove flat fields to avoid duplication
+  const product = { name: row.product_name || null };
+  // remove flat product fields to avoid duplication; variant's own photo_url remains on the variant
   delete row.product_name;
-  delete row.photo_url;
   return { ...row, product };
 }
 
 // list with optional where/params/limit/offset similar to other models
 async function list({ limit = 100, offset = 0, where = '', params = [] } = {}) {
   let text = `
-    SELECT pv.*, p.photo_url, p.product_name
+    SELECT pv.*, p.product_name
     FROM product_variants pv
     LEFT JOIN products p ON pv.product_id = p.id
   `;
@@ -40,9 +39,8 @@ async function list({ limit = 100, offset = 0, where = '', params = [] } = {}) {
   const { rows } = await pool.query(text, values);
   // map rows to nest product info
   return rows.map((r) => {
-    const product = { name: r.product_name || null, photo_url: r.photo_url || null };
+    const product = { name: r.product_name || null };
     delete r.product_name;
-    delete r.photo_url;
     return { ...r, product };
   });
 }

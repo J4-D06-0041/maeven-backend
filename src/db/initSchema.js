@@ -114,6 +114,7 @@ async function createSchema() {
         class VARCHAR(100),
         product_type VARCHAR(100),
         brand VARCHAR(255),
+        photo_url TEXT,
         size VARCHAR(100),
         color VARCHAR(100),
         price NUMERIC(12,2) DEFAULT 0,
@@ -239,6 +240,8 @@ async function createSchema() {
 
     // add is_active to product_variants if missing (safe for existing DBs)
     await client.query(`ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;`);
+    // add photo_url to product_variants if missing (safe for existing DBs)
+    await client.query(`ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS photo_url TEXT;`);
 
     await client.query('COMMIT');
     console.log('Schema initialization complete');
