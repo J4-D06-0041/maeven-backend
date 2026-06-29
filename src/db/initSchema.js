@@ -32,6 +32,10 @@ async function createSchema() {
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_method') THEN
           CREATE TYPE payment_method AS ENUM ('cash','gcash','bank_transfer','card','cod');
         END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'gcash_service_type') THEN
+          CREATE TYPE gcash_service_type AS ENUM ('cash_in','cash_out');
+        END IF;
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'return_status') THEN
           CREATE TYPE return_status AS ENUM ('pending','approved','rejected');
         END IF;
@@ -174,6 +178,42 @@ async function createSchema() {
         payment_date TIMESTAMP WITH TIME ZONE DEFAULT now()
       );
 
+      CREATE TABLE IF NOT EXISTS gcash_fee_rules (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        service_type gcash_service_type NOT NULL,
+        min_amount NUMERIC(12,2) NOT NULL CHECK (min_amount >= 0),
+        max_amount NUMERIC(12,2) CHECK (max_amount IS NULL OR max_amount >= min_amount),
+        fee_amount NUMERIC(12,2) NOT NULL CHECK (fee_amount >= 0),
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        effective_from TIMESTAMP WITH TIME ZONE,
+        effective_to TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS gcash_transactions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+        branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
+        customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
+        service_type gcash_service_type NOT NULL,
+        principal_amount NUMERIC(12,2) NOT NULL CHECK (principal_amount > 0),
+        fee_amount NUMERIC(12,2) NOT NULL CHECK (fee_amount >= 0),
+        gross_amount NUMERIC(12,2) NOT NULL CHECK (gross_amount >= 0),
+        cash_impact NUMERIC(12,2) NOT NULL,
+        reference_number VARCHAR(255) NOT NULL,
+        fee_rule_id UUID REFERENCES gcash_fee_rules(id) ON DELETE SET NULL,
+        received_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_gcash_transactions_reference_number
+        ON gcash_transactions(reference_number);
+
+      CREATE INDEX IF NOT EXISTS ix_gcash_fee_rules_lookup
+        ON gcash_fee_rules(service_type, is_active, min_amount, max_amount);
+
       CREATE TABLE IF NOT EXISTS returns (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
@@ -242,6 +282,34 @@ async function createSchema() {
     await client.query(`ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;`);
     // add photo_url to product_variants if missing (safe for existing DBs)
     await client.query(`ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS photo_url TEXT;`);
+
+    // add GCash tables/columns/indexes for existing DBs where table may already exist without latest columns
+    await client.query(`ALTER TABLE gcash_fee_rules ADD COLUMN IF NOT EXISTS service_type gcash_service_type;`);
+    await client.query(`ALTER TABLE gcash_fee_rules ADD COLUMN IF NOT EXISTS min_amount NUMERIC(12,2);`);
+    await client.query(`ALTER TABLE gcash_fee_rules ADD COLUMN IF NOT EXISTS max_amount NUMERIC(12,2);`);
+    await client.query(`ALTER TABLE gcash_fee_rules ADD COLUMN IF NOT EXISTS fee_amount NUMERIC(12,2);`);
+    await client.query(`ALTER TABLE gcash_fee_rules ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;`);
+    await client.query(`ALTER TABLE gcash_fee_rules ADD COLUMN IF NOT EXISTS effective_from TIMESTAMP WITH TIME ZONE;`);
+    await client.query(`ALTER TABLE gcash_fee_rules ADD COLUMN IF NOT EXISTS effective_to TIMESTAMP WITH TIME ZONE;`);
+    await client.query(`ALTER TABLE gcash_fee_rules ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
+    await client.query(`ALTER TABLE gcash_fee_rules ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
+
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS order_id UUID REFERENCES orders(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES customers(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS service_type gcash_service_type;`);
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS principal_amount NUMERIC(12,2);`);
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS fee_amount NUMERIC(12,2);`);
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS gross_amount NUMERIC(12,2);`);
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS cash_impact NUMERIC(12,2);`);
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS reference_number VARCHAR(255);`);
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS fee_rule_id UUID REFERENCES gcash_fee_rules(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS received_by UUID REFERENCES users(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS notes TEXT;`);
+    await client.query(`ALTER TABLE gcash_transactions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
+
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS ux_gcash_transactions_reference_number ON gcash_transactions(reference_number);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS ix_gcash_fee_rules_lookup ON gcash_fee_rules(service_type, is_active, min_amount, max_amount);`);
 
     await client.query('COMMIT');
     console.log('Schema initialization complete');

@@ -21,8 +21,10 @@ const purchaseOrderItemsModel = require('../models/purchaseOrderItems');
 const purchaseOrderEstimatesController = require('../controllers/purchaseOrderEstimatesController');
 const purchaseOrderItemService = require('../services/purchaseOrderItemService');
 const purchaseOrderService = require('../services/purchaseOrderService');
+const gcashFeeRuleService = require('../services/gcashFeeRuleService');
 const expensesModel = require('../models/expenses');
 const returnsModel = require('../models/returns');
+const gcashTransactionsController = require('../controllers/gcashTransactionsController');
 
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -115,6 +117,19 @@ router.get('/orders/:orderId/items', async (req, res) => {
   }
 });
 wire('payments', paymentsModel, { resourceName: 'payment', requireAuth: true });
+const gfrCtrl = createController(gcashFeeRuleService, 'gcash_fee_rule');
+const gfrBase = '/gcash-fee-rules';
+router.get(gfrBase, gfrCtrl.list);
+router.get(`${gfrBase}/:id`, gfrCtrl.get);
+router.post(gfrBase, auth.requireAuth, gfrCtrl.create);
+router.put(`${gfrBase}/:id`, auth.requireAuth, gfrCtrl.update);
+router.delete(`${gfrBase}/:id`, auth.requireAuth, gfrCtrl.remove);
+
+// Custom routes for GCash transactions to enforce fee-by-range and cash-impact rules.
+router.get('/gcash-transactions', auth.requireAuth, gcashTransactionsController.list);
+router.get('/gcash-transactions/:id', auth.requireAuth, gcashTransactionsController.get);
+router.post('/gcash-transactions', auth.requireAuth, gcashTransactionsController.create);
+
 wire('purchase-orders', purchaseOrdersModel, { resourceName: 'purchase_order' });
 // Use a custom service for purchase order items to enforce creation rules
 const poiCtrl = createController(purchaseOrderItemService, 'purchase_order_item');

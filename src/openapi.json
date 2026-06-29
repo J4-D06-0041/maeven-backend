@@ -20,6 +20,8 @@
     { "name": "Orders" },
     { "name": "Order Items" },
     { "name": "Payments" },
+    { "name": "GCash Fee Rules" },
+    { "name": "GCash Transactions" },
     { "name": "Purchase Orders" },
     { "name": "Purchase Order Items" },
     { "name": "Purchase Order Estimates" },
@@ -503,6 +505,70 @@
       "get": { "tags": ["Payments"], "summary": "Get payment", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
       "put": { "tags": ["Payments"], "summary": "Update payment", "responses": { "200": { "description": "Updated" } } },
       "delete": { "tags": ["Payments"], "summary": "Delete payment", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/gcash-fee-rules": {
+      "get": { "tags": ["GCash Fee Rules"], "summary": "List GCash fee rules", "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "tags": ["GCash Fee Rules"],
+        "summary": "Create GCash fee rule",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GCashFeeRuleCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedGCashFeeRuleResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+    "/api/gcash-fee-rules/{id}": {
+      "get": { "tags": ["GCash Fee Rules"], "summary": "Get GCash fee rule", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["GCash Fee Rules"], "summary": "Update GCash fee rule", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["GCash Fee Rules"], "summary": "Delete GCash fee rule", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/gcash-transactions": {
+      "get": { "tags": ["GCash Transactions"], "summary": "List GCash transactions", "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "tags": ["GCash Transactions"],
+        "summary": "Create GCash transaction with fee lookup",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GCashTransactionCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedGCashTransactionResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+    "/api/gcash-transactions/{id}": {
+      "get": { "tags": ["GCash Transactions"], "summary": "Get GCash transaction", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } }
     },
 
     "/api/purchase-orders": {
@@ -1050,6 +1116,68 @@
         }
       },
       "CreatedPaymentResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/Payment" } } },
+      "GCashFeeRuleCreate": {
+        "type": "object",
+        "properties": {
+          "service_type": { "type": "string", "enum": ["cash_in","cash_out"] },
+          "min_amount": { "type": "number", "format": "double" },
+          "max_amount": { "type": "number", "format": "double", "nullable": true },
+          "fee_amount": { "type": "number", "format": "double" },
+          "is_active": { "type": "boolean", "default": true },
+          "effective_from": { "type": "string", "format": "date-time", "nullable": true },
+          "effective_to": { "type": "string", "format": "date-time", "nullable": true }
+        },
+        "required": ["service_type","min_amount","fee_amount"]
+      },
+      "GCashFeeRule": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "service_type": { "type": "string", "enum": ["cash_in","cash_out"] },
+          "min_amount": { "type": "number", "format": "double" },
+          "max_amount": { "type": "number", "format": "double", "nullable": true },
+          "fee_amount": { "type": "number", "format": "double" },
+          "is_active": { "type": "boolean" },
+          "effective_from": { "type": "string", "format": "date-time", "nullable": true },
+          "effective_to": { "type": "string", "format": "date-time", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedGCashFeeRuleResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/GCashFeeRule" } } },
+      "GCashTransactionCreate": {
+        "type": "object",
+        "properties": {
+          "order_id": { "type": "string", "format": "uuid", "nullable": true },
+          "branch_id": { "type": "string", "format": "uuid", "nullable": true },
+          "customer_id": { "type": "string", "format": "uuid", "nullable": true },
+          "service_type": { "type": "string", "enum": ["cash_in","cash_out"] },
+          "principal_amount": { "type": "number", "format": "double" },
+          "reference_number": { "type": "string" },
+          "notes": { "type": "string", "nullable": true }
+        },
+        "required": ["service_type","principal_amount","reference_number"]
+      },
+      "GCashTransaction": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "order_id": { "type": "string", "format": "uuid", "nullable": true },
+          "branch_id": { "type": "string", "format": "uuid", "nullable": true },
+          "customer_id": { "type": "string", "format": "uuid", "nullable": true },
+          "service_type": { "type": "string", "enum": ["cash_in","cash_out"] },
+          "principal_amount": { "type": "number", "format": "double" },
+          "fee_amount": { "type": "number", "format": "double" },
+          "gross_amount": { "type": "number", "format": "double" },
+          "cash_impact": { "type": "number", "format": "double" },
+          "reference_number": { "type": "string" },
+          "fee_rule_id": { "type": "string", "format": "uuid", "nullable": true },
+          "received_by": { "type": "string", "format": "uuid", "nullable": true },
+          "notes": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedGCashTransactionResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/GCashTransaction" } } },
       "PurchaseOrderCreate": {
         "type": "object",
         "properties": {

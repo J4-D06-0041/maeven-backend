@@ -21,6 +21,8 @@ module.exports = {
     orders: 'orders',
     order_items: 'order_items',
     payments: 'payments',
+    gcash_fee_rules: 'gcash_fee_rules',
+    gcash_transactions: 'gcash_transactions',
     returns: 'returns',
     return_items: 'return_items',
     purchase_orders: 'purchase_orders',
