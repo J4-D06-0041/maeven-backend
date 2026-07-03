@@ -283,6 +283,16 @@ async function createSchema() {
     // add photo_url to product_variants if missing (safe for existing DBs)
     await client.query(`ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS photo_url TEXT;`);
 
+    // Normalize FK behavior for historical movement preservation on variant deletion.
+    await client.query(`ALTER TABLE inventory_movements DROP CONSTRAINT IF EXISTS inventory_movements_product_variant_id_fkey;`);
+    await client.query(`
+      ALTER TABLE inventory_movements
+      ADD CONSTRAINT inventory_movements_product_variant_id_fkey
+      FOREIGN KEY (product_variant_id)
+      REFERENCES product_variants(id)
+      ON DELETE SET NULL;
+    `);
+
     // add GCash tables/columns/indexes for existing DBs where table may already exist without latest columns
     await client.query(`ALTER TABLE gcash_fee_rules ADD COLUMN IF NOT EXISTS service_type gcash_service_type;`);
     await client.query(`ALTER TABLE gcash_fee_rules ADD COLUMN IF NOT EXISTS min_amount NUMERIC(12,2);`);

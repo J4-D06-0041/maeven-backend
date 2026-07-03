@@ -1,4 +1,4 @@
-const { insert, update, deleteById } = require('./_helpers');
+const { insert, update } = require('./_helpers');
 const { pool } = require('../db');
 
 const table = 'product_variants';
@@ -50,7 +50,40 @@ async function edit(id, data) {
 }
 
 async function remove(id) {
-  return deleteById(table, id);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const existing = await client.query(`SELECT * FROM ${table} WHERE id = $1 LIMIT 1`, [id]);
+    const variant = existing.rows[0] || null;
+    if (!variant) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    const refs = await client.query(
+      `SELECT 1 FROM inventory_movements WHERE product_variant_id = $1 LIMIT 1`,
+      [id]
+    );
+
+    if (refs.rowCount > 0) {
+      const deactivated = await client.query(
+        `UPDATE ${table} SET is_active = FALSE WHERE id = $1 RETURNING *`,
+        [id]
+      );
+      await client.query('COMMIT');
+      return deactivated.rows[0] || null;
+    }
+
+    const deleted = await client.query(`DELETE FROM ${table} WHERE id = $1 RETURNING *`, [id]);
+    await client.query('COMMIT');
+    return deleted.rows[0] || null;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 module.exports = { create, findById, list, edit, remove };
