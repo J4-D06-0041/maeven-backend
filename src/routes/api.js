@@ -25,6 +25,7 @@ const gcashFeeRuleService = require('../services/gcashFeeRuleService');
 const expensesModel = require('../models/expenses');
 const returnsModel = require('../models/returns');
 const gcashTransactionsController = require('../controllers/gcashTransactionsController');
+const reportsController = require('../controllers/reportsController');
 
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -171,5 +172,11 @@ router.get('/purchase-orders/:id/variance', async (req, res) => {
 });
 wire('expenses', expensesModel, { resourceName: 'expense' });
 wire('returns', returnsModel, { resourceName: 'return' });
+
+// Reports
+router.get('/reports/sales', reportsController.salesSummary);
+router.get('/reports/sales/overview', reportsController.overviewSummary);
+router.get('/reports/sales/payments', reportsController.paymentBreakdown);
+router.get('/reports/sales/top-products', reportsController.topProducts);
 
 module.exports = router;

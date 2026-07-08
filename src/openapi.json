@@ -27,7 +27,8 @@
     { "name": "Purchase Order Estimates" },
     { "name": "Expenses" },
     { "name": "Returns" },
-    { "name": "Auth" }
+    { "name": "Auth" },
+    { "name": "Reports" }
   ],
   "paths": {
     "/api/branches": {
@@ -759,6 +760,150 @@
       "get": { "tags": ["Returns"], "summary": "Get return", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
       "put": { "tags": ["Returns"], "summary": "Update return", "responses": { "200": { "description": "Updated" } } },
       "delete": { "tags": ["Returns"], "summary": "Delete return", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/reports/sales": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Sales summary grouped by period",
+        "description": "Returns sales data (gross sales, net sales, discounts, items sold, order count) grouped by the chosen period. Defaults: daily → last 30 days, weekly → last 12 weeks, monthly → last 12 months, yearly → last 5 years.",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "description": "Grouping period",
+            "schema": { "type": "string", "enum": ["daily","weekly","monthly","yearly","custom"], "default": "daily" }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start date (YYYY-MM-DD). Required when period=custom.",
+            "schema": { "type": "string", "format": "date", "example": "2026-06-01" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End date (YYYY-MM-DD, inclusive). Required when period=custom.",
+            "schema": { "type": "string", "format": "date", "example": "2026-06-30" }
+          },
+          { "name": "branch_id", "in": "query", "description": "Filter by branch UUID", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "sales_channel_id", "in": "query", "description": "Filter by sales channel UUID", "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "period": { "type": "string", "example": "monthly" },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/SalesPeriodItem" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+
+    "/api/reports/sales/overview": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Sales KPI overview (single-row totals)",
+        "description": "Returns aggregated totals for a date range — useful for dashboard KPI cards.",
+        "parameters": [
+          { "name": "from", "in": "query", "description": "Start date (YYYY-MM-DD)", "schema": { "type": "string", "format": "date", "example": "2026-07-01" } },
+          { "name": "to", "in": "query", "description": "End date (YYYY-MM-DD, inclusive)", "schema": { "type": "string", "format": "date", "example": "2026-07-08" } },
+          { "name": "branch_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "sales_channel_id", "in": "query", "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/SalesOverview" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+
+    "/api/reports/sales/payments": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Payment method breakdown",
+        "description": "Returns total collected amount and transaction count grouped by payment method for a given date range.",
+        "parameters": [
+          { "name": "from", "in": "query", "description": "Start date (YYYY-MM-DD)", "schema": { "type": "string", "format": "date", "example": "2026-07-01" } },
+          { "name": "to", "in": "query", "description": "End date (YYYY-MM-DD, inclusive)", "schema": { "type": "string", "format": "date", "example": "2026-07-08" } },
+          { "name": "branch_id", "in": "query", "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/PaymentBreakdownItem" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+
+    "/api/reports/sales/top-products": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Top-selling products by revenue",
+        "description": "Returns the top N product variants ranked by total revenue within a date range.",
+        "parameters": [
+          { "name": "from", "in": "query", "description": "Start date (YYYY-MM-DD)", "schema": { "type": "string", "format": "date", "example": "2026-07-01" } },
+          { "name": "to", "in": "query", "description": "End date (YYYY-MM-DD, inclusive)", "schema": { "type": "string", "format": "date", "example": "2026-07-08" } },
+          { "name": "branch_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "limit", "in": "query", "description": "Max results (default 10, max 100)", "schema": { "type": "integer", "default": 10, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/TopProductItem" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     }
   },
   "components": {
@@ -1411,7 +1556,51 @@
           "quantity": { "type": "number" }
         }
       },
-      "CreatedReturnItemResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/ReturnItem" } } }
+      "CreatedReturnItemResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/ReturnItem" } } },
+
+      "SalesPeriodItem": {
+        "type": "object",
+        "properties": {
+          "period": { "type": "string", "format": "date-time", "description": "Truncated period start (day/week/month/year)" },
+          "order_count": { "type": "integer" },
+          "gross_sales": { "type": "number", "format": "double" },
+          "total_discounts": { "type": "number", "format": "double" },
+          "net_sales": { "type": "number", "format": "double" },
+          "items_sold": { "type": "integer" }
+        }
+      },
+      "SalesOverview": {
+        "type": "object",
+        "properties": {
+          "order_count": { "type": "integer" },
+          "gross_sales": { "type": "number", "format": "double" },
+          "total_discounts": { "type": "number", "format": "double" },
+          "net_sales": { "type": "number", "format": "double" },
+          "items_sold": { "type": "integer" },
+          "avg_order_value": { "type": "number", "format": "double" }
+        }
+      },
+      "PaymentBreakdownItem": {
+        "type": "object",
+        "properties": {
+          "payment_method": { "type": "string", "enum": ["cash","gcash","bank_transfer","card","cod"] },
+          "transaction_count": { "type": "integer" },
+          "total_amount": { "type": "number", "format": "double" }
+        }
+      },
+      "TopProductItem": {
+        "type": "object",
+        "properties": {
+          "product_variant_id": { "type": "string", "format": "uuid" },
+          "sku": { "type": "string" },
+          "product_name": { "type": "string" },
+          "size": { "type": "string" },
+          "color": { "type": "string" },
+          "class": { "type": "string" },
+          "units_sold": { "type": "integer" },
+          "total_revenue": { "type": "number", "format": "double" }
+        }
+      }
     }
   }
 }
