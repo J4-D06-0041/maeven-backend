@@ -69,20 +69,24 @@ wire('suppliers', suppliersModel, { resourceName: 'supplier' });
 wire('categories', categoriesModel, { resourceName: 'category' });
 wire('products', productsModel, { resourceName: 'product' });
 
-// Custom wiring for product-variants to support optional `is_active` filter via query param
+// Custom wiring for product-variants to support optional filters via query params
 {
   const pathName = 'product-variants';
   const svc = createService(productVariantsModel);
   const ctrl = createController(svc, 'product_variant');
   const base = `/${pathName}`;
 
-  // List with optional is_active filter: /api/product-variants?is_active=true
+  // List with optional filters: /api/product-variants?is_active=true&product_id=<uuid>
   router.get(base, async (req, res) => {
     try {
       const limit = Number(req.query.limit) || 100;
       const offset = Number(req.query.offset) || 0;
       const whereParts = [];
       const params = [];
+      if (req.query.product_id) {
+        params.push(req.query.product_id);
+        whereParts.push(`product_id = $${params.length}`);
+      }
       if (req.query.is_active !== undefined) {
         // accept "true"|"false" (string) or boolean
         const val = (req.query.is_active === 'true' || req.query.is_active === true || req.query.is_active === '1');
@@ -90,6 +94,28 @@ wire('products', productsModel, { resourceName: 'product' });
         whereParts.push(`is_active = $${params.length}`);
       }
       const where = whereParts.length ? whereParts.join(' AND ') : '';
+      const items = await productVariantsModel.list({ limit, offset, where, params });
+      return res.json({ ok: true, data: items });
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Nested route: list variants by product id
+  router.get('/products/:productId/variants', async (req, res) => {
+    try {
+      const limit = Number(req.query.limit) || 100;
+      const offset = Number(req.query.offset) || 0;
+      const whereParts = ['product_id = $1'];
+      const params = [req.params.productId];
+
+      if (req.query.is_active !== undefined) {
+        const val = (req.query.is_active === 'true' || req.query.is_active === true || req.query.is_active === '1');
+        params.push(val);
+        whereParts.push(`is_active = $${params.length}`);
+      }
+
+      const where = whereParts.join(' AND ');
       const items = await productVariantsModel.list({ limit, offset, where, params });
       return res.json({ ok: true, data: items });
     } catch (err) {

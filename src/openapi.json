@@ -316,7 +316,17 @@
     },
 
     "/api/product-variants": {
-      "get": { "tags": ["Product Variants"], "summary": "List product variants", "responses": { "200": { "description": "OK" } } },
+      "get": {
+        "tags": ["Product Variants"],
+        "summary": "List product variants",
+        "parameters": [
+          { "name": "product_id", "in": "query", "description": "Filter variants by product UUID", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "is_active", "in": "query", "description": "Filter active/inactive variants", "schema": { "type": "boolean" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      },
       "post": {
         "tags": ["Product Variants"],
         "summary": "Create product variant",
@@ -340,6 +350,19 @@
           "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
           "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
         }
+      }
+    },
+    "/api/products/{productId}/variants": {
+      "get": {
+        "tags": ["Product Variants"],
+        "summary": "List product variants by product ID",
+        "parameters": [
+          { "name": "productId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "is_active", "in": "query", "description": "Filter active/inactive variants", "schema": { "type": "boolean" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": { "200": { "description": "OK" } }
       }
     },
     "/api/product-variants/{id}": {
