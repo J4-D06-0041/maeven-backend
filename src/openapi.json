@@ -27,6 +27,7 @@
     { "name": "Purchase Order Estimates" },
     { "name": "Expenses" },
     { "name": "Returns" },
+    { "name": "Cash Reconciliation" },
     { "name": "Auth" },
     { "name": "Reports" }
   ],
@@ -927,6 +928,194 @@
           "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
         }
       }
+    },
+
+    "/api/reports/cash-reconciliation/daily": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Daily cash reconciliation report",
+        "description": "Returns the cash reconciliation result for a branch and business date including opening cash, total sales, expected cash, actual cash, and shortage/overage.",
+        "parameters": [
+          { "name": "branch_id", "in": "query", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "business_date", "in": "query", "required": true, "schema": { "type": "string", "format": "date", "example": "2026-07-09" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/CashReconciliationDailyReport" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "404": { "description": "Not Found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+
+    "/api/cash-reconciliations": {
+      "get": {
+        "tags": ["Cash Reconciliation"],
+        "summary": "List cash reconciliations",
+        "parameters": [
+          { "name": "branch_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/CashReconciliation" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/cash-reconciliations/{id}": {
+      "get": {
+        "tags": ["Cash Reconciliation"],
+        "summary": "Get cash reconciliation by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/CashReconciliationDailyReport" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Not Found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+
+    "/api/cash-reconciliations/open": {
+      "post": {
+        "tags": ["Cash Reconciliation"],
+        "summary": "Encode opening cash breakdown",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CashReconciliationOpenRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/CashReconciliation" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "409": { "description": "Conflict", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      },
+      "put": {
+        "tags": ["Cash Reconciliation"],
+        "summary": "Upsert opening cash breakdown by branch/date",
+        "description": "Creates opening cash if none exists for the branch/date, otherwise updates it. Returns 409 when the day is already closed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CashReconciliationOpenRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/CashReconciliation" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "409": { "description": "Conflict", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+
+    "/api/cash-reconciliations/{id}/close": {
+      "post": {
+        "tags": ["Cash Reconciliation"],
+        "summary": "Encode closing cash breakdown and reconcile",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CashReconciliationCloseRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/CashReconciliation" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "404": { "description": "Not Found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
     }
   },
   "components": {
@@ -1623,6 +1812,91 @@
           "units_sold": { "type": "integer" },
           "total_revenue": { "type": "number", "format": "double" }
         }
+      },
+      "CashBreakdownLine": {
+        "type": "object",
+        "properties": {
+          "denomination": { "type": "number", "format": "double", "example": 1000 },
+          "quantity": { "type": "integer", "example": 2 },
+          "amount": { "type": "number", "format": "double", "example": 2000 }
+        },
+        "required": ["denomination", "quantity"]
+      },
+      "CashReconciliationOpenRequest": {
+        "type": "object",
+        "properties": {
+          "branch_id": { "type": "string", "format": "uuid" },
+          "business_date": { "type": "string", "format": "date", "example": "2026-07-09" },
+          "opening_cash_breakdown": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CashBreakdownLine" }
+          },
+          "notes": { "type": "string" }
+        },
+        "required": ["branch_id", "opening_cash_breakdown"]
+      },
+      "CashReconciliationCloseRequest": {
+        "type": "object",
+        "properties": {
+          "closing_cash_breakdown": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CashBreakdownLine" }
+          },
+          "notes": { "type": "string" }
+        },
+        "required": ["closing_cash_breakdown"]
+      },
+      "CashReconciliation": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "branch_id": { "type": "string", "format": "uuid" },
+          "business_date": { "type": "string", "format": "date" },
+          "opening_cash_breakdown": { "type": "array", "items": { "$ref": "#/components/schemas/CashBreakdownLine" } },
+          "opening_cash_total": { "type": "number", "format": "double" },
+          "total_sales_amount": { "type": "number", "format": "double" },
+          "cash_sales_amount": { "type": "number", "format": "double" },
+          "other_cash_impact_amount": { "type": "number", "format": "double", "description": "Net cash impact from other transactions (e.g., GCash cash_in/cash_out)." },
+          "gcash_cash_in_total": { "type": "number", "format": "double", "description": "Total positive cash impact from GCash cash-in transactions." },
+          "gcash_cash_out_total": { "type": "number", "format": "double", "description": "Total cash removed through GCash cash-out transactions." },
+          "expected_cash_on_hand": { "type": "number", "format": "double" },
+          "closing_cash_breakdown": { "type": "array", "items": { "$ref": "#/components/schemas/CashBreakdownLine" } },
+          "actual_cash_on_hand": { "type": "number", "format": "double" },
+          "variance_amount": { "type": "number", "format": "double" },
+          "is_short": { "type": "boolean" },
+          "opened_by": { "type": "string", "format": "uuid" },
+          "closed_by": { "type": "string", "format": "uuid" },
+          "opened_at": { "type": "string", "format": "date-time" },
+          "closed_at": { "type": "string", "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CashReconciliationAuditSummary": {
+        "type": "object",
+        "properties": {
+          "cash_sales_amount": { "type": "number", "format": "double" },
+          "gcash_cash_in_total": { "type": "number", "format": "double" },
+          "gcash_cash_out_total": { "type": "number", "format": "double" },
+          "net_other_cash_impact_amount": { "type": "number", "format": "double" },
+          "total_cash_inflows": { "type": "number", "format": "double" },
+          "total_cash_outflows": { "type": "number", "format": "double" },
+          "expected_cash_on_hand": { "type": "number", "format": "double" },
+          "actual_cash_on_hand": { "type": "number", "format": "double" },
+          "variance_amount": { "type": "number", "format": "double" },
+          "is_short": { "type": "boolean" }
+        }
+      },
+      "CashReconciliationDailyReport": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CashReconciliation" },
+          {
+            "type": "object",
+            "properties": {
+              "audit_summary": { "$ref": "#/components/schemas/CashReconciliationAuditSummary" }
+            }
+          }
+        ]
       }
     }
   }

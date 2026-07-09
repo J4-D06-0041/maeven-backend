@@ -270,6 +270,36 @@ async function createSchema() {
         amount NUMERIC(12,2) DEFAULT 0,
         expense_date DATE
       );
+
+      CREATE TABLE IF NOT EXISTS cash_reconciliations (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+        business_date DATE NOT NULL,
+        opening_cash_breakdown JSONB NOT NULL DEFAULT '[]'::jsonb,
+        closing_cash_breakdown JSONB NOT NULL DEFAULT '[]'::jsonb,
+        opening_cash_total NUMERIC(12,2) NOT NULL DEFAULT 0,
+        closing_cash_total NUMERIC(12,2) NOT NULL DEFAULT 0,
+        total_sales_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+        cash_sales_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+        other_cash_impact_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+        gcash_cash_in_total NUMERIC(12,2) NOT NULL DEFAULT 0,
+        gcash_cash_out_total NUMERIC(12,2) NOT NULL DEFAULT 0,
+        expected_cash_on_hand NUMERIC(12,2) NOT NULL DEFAULT 0,
+        actual_cash_on_hand NUMERIC(12,2) NOT NULL DEFAULT 0,
+        variance_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+        is_short BOOLEAN NOT NULL DEFAULT FALSE,
+        notes TEXT,
+        opened_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        closed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        opened_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+        closed_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+        UNIQUE(branch_id, business_date)
+      );
+
+      CREATE INDEX IF NOT EXISTS ix_cash_reconciliations_branch_date
+        ON cash_reconciliations(branch_id, business_date DESC);
     `);
 
     // add photo_url to products if missing (safe for existing DBs)
@@ -320,6 +350,32 @@ async function createSchema() {
 
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS ux_gcash_transactions_reference_number ON gcash_transactions(reference_number);`);
     await client.query(`CREATE INDEX IF NOT EXISTS ix_gcash_fee_rules_lookup ON gcash_fee_rules(service_type, is_active, min_amount, max_amount);`);
+
+    // add cash_reconciliations columns for existing DBs that were created before this feature
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id) ON DELETE CASCADE;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS business_date DATE;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS opening_cash_breakdown JSONB DEFAULT '[]'::jsonb;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS closing_cash_breakdown JSONB DEFAULT '[]'::jsonb;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS opening_cash_total NUMERIC(12,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS closing_cash_total NUMERIC(12,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS total_sales_amount NUMERIC(12,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS cash_sales_amount NUMERIC(12,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS other_cash_impact_amount NUMERIC(12,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS gcash_cash_in_total NUMERIC(12,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS gcash_cash_out_total NUMERIC(12,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS expected_cash_on_hand NUMERIC(12,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS actual_cash_on_hand NUMERIC(12,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS variance_amount NUMERIC(12,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS is_short BOOLEAN DEFAULT FALSE;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS notes TEXT;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS opened_by UUID REFERENCES users(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS closed_by UUID REFERENCES users(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS closed_at TIMESTAMP WITH TIME ZONE;`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS ux_cash_reconciliations_branch_date ON cash_reconciliations(branch_id, business_date);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS ix_cash_reconciliations_branch_date ON cash_reconciliations(branch_id, business_date DESC);`);
 
     await client.query('COMMIT');
     console.log('Schema initialization complete');

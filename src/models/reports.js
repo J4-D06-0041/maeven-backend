@@ -230,4 +230,42 @@ async function getOverviewSummary({ from, to, branch_id, sales_channel_id } = {}
   return rows[0] || {};
 }
 
-module.exports = { getSalesSummary, getPaymentBreakdown, getTopProducts, getOverviewSummary };
+/**
+ * Daily cash reconciliation report for a branch and business date.
+ */
+async function getDailyCashReconciliation({ branch_id, business_date } = {}) {
+  const sql = `
+    SELECT
+      cr.id,
+      cr.branch_id,
+      cr.business_date,
+      cr.opening_cash_breakdown,
+      cr.opening_cash_total,
+      cr.total_sales_amount,
+      cr.cash_sales_amount,
+      cr.other_cash_impact_amount,
+      cr.gcash_cash_in_total,
+      cr.gcash_cash_out_total,
+      cr.expected_cash_on_hand,
+      cr.closing_cash_breakdown,
+      cr.actual_cash_on_hand,
+      cr.variance_amount,
+      cr.is_short,
+      cr.opened_by,
+      cr.closed_by,
+      cr.opened_at,
+      cr.closed_at,
+      cr.created_at,
+      cr.updated_at,
+      b.branch_name
+    FROM cash_reconciliations cr
+    LEFT JOIN branches b ON b.id = cr.branch_id
+    WHERE cr.branch_id = $1
+      AND cr.business_date = $2::date
+    LIMIT 1
+  `;
+  const { rows } = await pool.query(sql, [branch_id, business_date]);
+  return rows[0] || null;
+}
+
+module.exports = { getSalesSummary, getPaymentBreakdown, getTopProducts, getOverviewSummary, getDailyCashReconciliation };

@@ -26,6 +26,7 @@ const expensesModel = require('../models/expenses');
 const returnsModel = require('../models/returns');
 const gcashTransactionsController = require('../controllers/gcashTransactionsController');
 const reportsController = require('../controllers/reportsController');
+const cashReconciliationsController = require('../controllers/cashReconciliationsController');
 
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -204,5 +205,13 @@ router.get('/reports/sales', reportsController.salesSummary);
 router.get('/reports/sales/overview', reportsController.overviewSummary);
 router.get('/reports/sales/payments', reportsController.paymentBreakdown);
 router.get('/reports/sales/top-products', reportsController.topProducts);
+router.get('/reports/cash-reconciliation/daily', auth.requireAuth, reportsController.dailyCashReconciliation);
+
+// Cash reconciliation workflow
+router.get('/cash-reconciliations', auth.requireAuth, cashReconciliationsController.list);
+router.get('/cash-reconciliations/:id', auth.requireAuth, cashReconciliationsController.get);
+router.post('/cash-reconciliations/open', auth.requireAuth, cashReconciliationsController.open);
+router.put('/cash-reconciliations/open', auth.requireAuth, cashReconciliationsController.upsertOpen);
+router.post('/cash-reconciliations/:id/close', auth.requireAuth, cashReconciliationsController.close);
 
 module.exports = router;

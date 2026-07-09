@@ -27,6 +27,7 @@ module.exports = {
     return_items: 'return_items',
     purchase_orders: 'purchase_orders',
     purchase_order_items: 'purchase_order_items',
-    expenses: 'expenses'
+    expenses: 'expenses',
+    cash_reconciliations: 'cash_reconciliations'
   }
 };

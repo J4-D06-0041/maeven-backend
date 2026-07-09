@@ -98,4 +98,55 @@ async function topProducts(req, res) {
   }
 }
 
-module.exports = { salesSummary, overviewSummary, paymentBreakdown, topProducts };
+async function dailyCashReconciliation(req, res) {
+  try {
+    const branch_id = req.query.branch_id;
+    const business_date = req.query.business_date;
+
+    if (!branch_id) {
+      return res.status(400).json({ ok: false, error: 'branch_id is required' });
+    }
+    if (!business_date || !/^\d{4}-\d{2}-\d{2}$/.test(String(business_date))) {
+      return res.status(400).json({ ok: false, error: 'business_date is required in YYYY-MM-DD format' });
+    }
+
+    const data = await reportsModel.getDailyCashReconciliation({
+      branch_id,
+      business_date,
+    });
+
+    if (!data) {
+      return res.status(404).json({ ok: false, error: 'cash reconciliation report not found for branch/date' });
+    }
+
+    const cashSales = Number(data.cash_sales_amount || 0);
+    const otherNet = Number(data.other_cash_impact_amount || 0);
+    const cashIn = Number(data.gcash_cash_in_total || 0);
+    const cashOut = Number(data.gcash_cash_out_total || 0);
+    const expected = Number(data.expected_cash_on_hand || 0);
+    const actual = Number(data.actual_cash_on_hand || 0);
+    const variance = Number(data.variance_amount || 0);
+
+    const withAuditSummary = {
+      ...data,
+      audit_summary: {
+        cash_sales_amount: Number(cashSales.toFixed(2)),
+        gcash_cash_in_total: Number(cashIn.toFixed(2)),
+        gcash_cash_out_total: Number(cashOut.toFixed(2)),
+        net_other_cash_impact_amount: Number(otherNet.toFixed(2)),
+        total_cash_inflows: Number((cashSales + cashIn).toFixed(2)),
+        total_cash_outflows: Number(cashOut.toFixed(2)),
+        expected_cash_on_hand: Number(expected.toFixed(2)),
+        actual_cash_on_hand: Number(actual.toFixed(2)),
+        variance_amount: Number(variance.toFixed(2)),
+        is_short: Boolean(data.is_short),
+      },
+    };
+
+    return res.json({ ok: true, data: withAuditSummary });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+}
+
+module.exports = { salesSummary, overviewSummary, paymentBreakdown, topProducts, dailyCashReconciliation };
