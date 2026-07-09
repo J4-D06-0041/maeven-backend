@@ -23,6 +23,8 @@ module.exports = {
     payments: 'payments',
     gcash_fee_rules: 'gcash_fee_rules',
     gcash_transactions: 'gcash_transactions',
+    prepaid_load_products: 'prepaid_load_products',
+    prepaid_load_transactions: 'prepaid_load_transactions',
     returns: 'returns',
     return_items: 'return_items',
     purchase_orders: 'purchase_orders',

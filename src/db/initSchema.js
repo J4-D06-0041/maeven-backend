@@ -36,6 +36,9 @@ async function createSchema() {
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'gcash_service_type') THEN
           CREATE TYPE gcash_service_type AS ENUM ('cash_in','cash_out');
         END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'prepaid_load_carrier') THEN
+          CREATE TYPE prepaid_load_carrier AS ENUM ('smart','tnt','globe','tm','dito','gomo','sun');
+        END IF;
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'return_status') THEN
           CREATE TYPE return_status AS ENUM ('pending','approved','rejected');
         END IF;
@@ -214,6 +217,46 @@ async function createSchema() {
       CREATE INDEX IF NOT EXISTS ix_gcash_fee_rules_lookup
         ON gcash_fee_rules(service_type, is_active, min_amount, max_amount);
 
+      CREATE TABLE IF NOT EXISTS prepaid_load_products (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        carrier prepaid_load_carrier NOT NULL,
+        product_code VARCHAR(120) NOT NULL UNIQUE,
+        product_name VARCHAR(255) NOT NULL,
+        description TEXT,
+        load_type VARCHAR(50) NOT NULL DEFAULT 'regular',
+        face_value NUMERIC(12,2) NOT NULL CHECK (face_value > 0),
+        markup_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (markup_amount >= 0),
+        validity_days INTEGER CHECK (validity_days IS NULL OR validity_days > 0),
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        source_url TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS prepaid_load_transactions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+        branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
+        customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
+        recipient_mobile_no VARCHAR(20) NOT NULL,
+        carrier prepaid_load_carrier NOT NULL,
+        product_id UUID NOT NULL REFERENCES prepaid_load_products(id) ON DELETE RESTRICT,
+        face_value NUMERIC(12,2) NOT NULL CHECK (face_value > 0),
+        markup_amount NUMERIC(12,2) NOT NULL CHECK (markup_amount >= 0),
+        gross_amount NUMERIC(12,2) NOT NULL CHECK (gross_amount > 0),
+        cash_impact NUMERIC(12,2) NOT NULL,
+        reference_number VARCHAR(255) NOT NULL,
+        received_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_prepaid_load_transactions_reference_number
+        ON prepaid_load_transactions(reference_number);
+
+      CREATE INDEX IF NOT EXISTS ix_prepaid_load_products_carrier_active
+        ON prepaid_load_products(carrier, is_active, face_value);
+
       CREATE TABLE IF NOT EXISTS returns (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
@@ -350,6 +393,39 @@ async function createSchema() {
 
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS ux_gcash_transactions_reference_number ON gcash_transactions(reference_number);`);
     await client.query(`CREATE INDEX IF NOT EXISTS ix_gcash_fee_rules_lookup ON gcash_fee_rules(service_type, is_active, min_amount, max_amount);`);
+
+    // add prepaid load tables/columns/indexes for existing DBs
+    await client.query(`ALTER TABLE prepaid_load_products ADD COLUMN IF NOT EXISTS carrier prepaid_load_carrier;`);
+    await client.query(`ALTER TABLE prepaid_load_products ADD COLUMN IF NOT EXISTS product_code VARCHAR(120);`);
+    await client.query(`ALTER TABLE prepaid_load_products ADD COLUMN IF NOT EXISTS product_name VARCHAR(255);`);
+    await client.query(`ALTER TABLE prepaid_load_products ADD COLUMN IF NOT EXISTS description TEXT;`);
+    await client.query(`ALTER TABLE prepaid_load_products ADD COLUMN IF NOT EXISTS load_type VARCHAR(50) DEFAULT 'regular';`);
+    await client.query(`ALTER TABLE prepaid_load_products ADD COLUMN IF NOT EXISTS face_value NUMERIC(12,2);`);
+    await client.query(`ALTER TABLE prepaid_load_products ADD COLUMN IF NOT EXISTS markup_amount NUMERIC(12,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE prepaid_load_products ADD COLUMN IF NOT EXISTS validity_days INTEGER;`);
+    await client.query(`ALTER TABLE prepaid_load_products ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;`);
+    await client.query(`ALTER TABLE prepaid_load_products ADD COLUMN IF NOT EXISTS source_url TEXT;`);
+    await client.query(`ALTER TABLE prepaid_load_products ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
+    await client.query(`ALTER TABLE prepaid_load_products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
+
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS order_id UUID REFERENCES orders(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES customers(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS recipient_mobile_no VARCHAR(20);`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS carrier prepaid_load_carrier;`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS product_id UUID REFERENCES prepaid_load_products(id) ON DELETE RESTRICT;`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS face_value NUMERIC(12,2);`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS markup_amount NUMERIC(12,2);`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS gross_amount NUMERIC(12,2);`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS cash_impact NUMERIC(12,2);`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS reference_number VARCHAR(255);`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS received_by UUID REFERENCES users(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS notes TEXT;`);
+    await client.query(`ALTER TABLE prepaid_load_transactions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
+
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS ux_prepaid_load_products_product_code ON prepaid_load_products(product_code);`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS ux_prepaid_load_transactions_reference_number ON prepaid_load_transactions(reference_number);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS ix_prepaid_load_products_carrier_active ON prepaid_load_products(carrier, is_active, face_value);`);
 
     // add cash_reconciliations columns for existing DBs that were created before this feature
     await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id) ON DELETE CASCADE;`);

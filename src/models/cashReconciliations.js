@@ -30,11 +30,22 @@ async function getSalesTotals(client, { branch_id, business_date }) {
   `;
 
   const otherCashImpactSql = `
-    SELECT COALESCE(SUM(gt.cash_impact), 0) AS other_cash_impact_amount
-    FROM gcash_transactions gt
-    WHERE gt.branch_id = $1
-      AND gt.created_at >= $2::date
-      AND gt.created_at < ($2::date + INTERVAL '1 day')
+    SELECT COALESCE(SUM(x.cash_impact), 0) AS other_cash_impact_amount
+    FROM (
+      SELECT gt.cash_impact
+      FROM gcash_transactions gt
+      WHERE gt.branch_id = $1
+        AND gt.created_at >= $2::date
+        AND gt.created_at < ($2::date + INTERVAL '1 day')
+
+      UNION ALL
+
+      SELECT pt.cash_impact
+      FROM prepaid_load_transactions pt
+      WHERE pt.branch_id = $1
+        AND pt.created_at >= $2::date
+        AND pt.created_at < ($2::date + INTERVAL '1 day')
+    ) x
   `;
 
   const gcashBreakdownSql = `

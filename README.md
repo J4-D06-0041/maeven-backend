@@ -26,6 +26,12 @@ npm start
 
 The server exposes a health endpoint at `GET /health` which returns the current DB time if connected.
 
+Prepaid load feature
+
+- Run `npm run seed-prepaid-loads` to populate initial prepaid load products (Smart + TNT + DITO samples sourced from public pages).
+- Manage per-load markup via CRUD on `prepaid_load_products` (`markup_amount` field).
+- Record sales using `POST /api/prepaid-load-transactions` with `product_id`, `recipient_mobile_no`, and `reference_number`.
+
 Environment and secrets
 
 - **Do not commit** your `.env` file. It contains database credentials and other secrets.

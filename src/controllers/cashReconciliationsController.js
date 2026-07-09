@@ -49,6 +49,7 @@ function buildAuditSummary(data) {
   const otherNet = Number(data.other_cash_impact_amount || 0);
   const cashIn = Number(data.gcash_cash_in_total || 0);
   const cashOut = Number(data.gcash_cash_out_total || 0);
+  const prepaidLoadTotal = Number(data.prepaid_load_total || 0);
   const expected = Number(data.expected_cash_on_hand || 0);
   const actual = Number(data.actual_cash_on_hand || 0);
   const variance = Number(data.variance_amount || 0);
@@ -57,6 +58,7 @@ function buildAuditSummary(data) {
     cash_sales_amount: Number(cashSales.toFixed(2)),
     gcash_cash_in_total: Number(cashIn.toFixed(2)),
     gcash_cash_out_total: Number(cashOut.toFixed(2)),
+    prepaid_load_total: Number(prepaidLoadTotal.toFixed(2)),
     net_other_cash_impact_amount: Number(otherNet.toFixed(2)),
     total_cash_inflows: Number((cashSales + cashIn).toFixed(2)),
     total_cash_outflows: Number(cashOut.toFixed(2)),

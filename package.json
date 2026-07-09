@@ -7,7 +7,8 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test-db": "node scripts/testDb.js",
-    "init-db": "node scripts/initDb.js"
+    "init-db": "node scripts/initDb.js",
+    "seed-prepaid-loads": "node scripts/seedPrepaidLoads.js"
   },
   "keywords": [],
   "author": "",

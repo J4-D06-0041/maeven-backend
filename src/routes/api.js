@@ -25,8 +25,10 @@ const gcashFeeRuleService = require('../services/gcashFeeRuleService');
 const expensesModel = require('../models/expenses');
 const returnsModel = require('../models/returns');
 const gcashTransactionsController = require('../controllers/gcashTransactionsController');
+const prepaidLoadTransactionsController = require('../controllers/prepaidLoadTransactionsController');
 const reportsController = require('../controllers/reportsController');
 const cashReconciliationsController = require('../controllers/cashReconciliationsController');
+const prepaidLoadProductsModel = require('../models/prepaidLoadProducts');
 
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -157,6 +159,17 @@ router.delete(`${gfrBase}/:id`, auth.requireAuth, gfrCtrl.remove);
 router.get('/gcash-transactions', auth.requireAuth, gcashTransactionsController.list);
 router.get('/gcash-transactions/:id', auth.requireAuth, gcashTransactionsController.get);
 router.post('/gcash-transactions', auth.requireAuth, gcashTransactionsController.create);
+
+// Prepaid load catalog (editable markup per load item)
+wire('prepaid-load-products', prepaidLoadProductsModel, {
+  resourceName: 'prepaid_load_product',
+  requireAuth: true,
+});
+
+// Prepaid load transactions
+router.get('/prepaid-load-transactions', auth.requireAuth, prepaidLoadTransactionsController.list);
+router.get('/prepaid-load-transactions/:id', auth.requireAuth, prepaidLoadTransactionsController.get);
+router.post('/prepaid-load-transactions', auth.requireAuth, prepaidLoadTransactionsController.create);
 
 wire('purchase-orders', purchaseOrdersModel, { resourceName: 'purchase_order' });
 // Use a custom service for purchase order items to enforce creation rules

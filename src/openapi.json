@@ -22,6 +22,8 @@
     { "name": "Payments" },
     { "name": "GCash Fee Rules" },
     { "name": "GCash Transactions" },
+    { "name": "Prepaid Load Products" },
+    { "name": "Prepaid Load Transactions" },
     { "name": "Purchase Orders" },
     { "name": "Purchase Order Items" },
     { "name": "Purchase Order Estimates" },
@@ -594,6 +596,70 @@
     },
     "/api/gcash-transactions/{id}": {
       "get": { "tags": ["GCash Transactions"], "summary": "Get GCash transaction", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } }
+    },
+
+    "/api/prepaid-load-products": {
+      "get": { "tags": ["Prepaid Load Products"], "summary": "List prepaid load products", "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "tags": ["Prepaid Load Products"],
+        "summary": "Create prepaid load product",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PrepaidLoadProductCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedPrepaidLoadProductResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+    "/api/prepaid-load-products/{id}": {
+      "get": { "tags": ["Prepaid Load Products"], "summary": "Get prepaid load product", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "put": { "tags": ["Prepaid Load Products"], "summary": "Update prepaid load product", "responses": { "200": { "description": "Updated" } } },
+      "delete": { "tags": ["Prepaid Load Products"], "summary": "Delete prepaid load product", "responses": { "204": { "description": "No content" } } }
+    },
+
+    "/api/prepaid-load-transactions": {
+      "get": { "tags": ["Prepaid Load Transactions"], "summary": "List prepaid load transactions", "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "tags": ["Prepaid Load Transactions"],
+        "summary": "Create prepaid load transaction",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PrepaidLoadTransactionCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreatedPrepaidLoadTransactionResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
+          "500": { "description": "Server Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+    "/api/prepaid-load-transactions/{id}": {
+      "get": { "tags": ["Prepaid Load Transactions"], "summary": "Get prepaid load transaction", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } }
     },
 
     "/api/purchase-orders": {
@@ -1535,6 +1601,87 @@
         }
       },
       "CreatedGCashTransactionResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/GCashTransaction" } } },
+      "PrepaidLoadProductCreate": {
+        "type": "object",
+        "properties": {
+          "carrier": { "type": "string", "enum": ["smart", "tnt", "globe", "tm", "dito", "gomo", "sun"] },
+          "product_code": { "type": "string" },
+          "product_name": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "load_type": { "type": "string", "enum": ["regular", "promo", "data", "combo", "unli", "starter_pack", "other"], "default": "regular" },
+          "face_value": { "type": "number", "format": "double" },
+          "markup_amount": { "type": "number", "format": "double", "default": 0 },
+          "validity_days": { "type": "integer", "nullable": true },
+          "is_active": { "type": "boolean", "default": true },
+          "source_url": { "type": "string", "nullable": true }
+        },
+        "required": ["carrier", "product_code", "product_name", "face_value"]
+      },
+      "PrepaidLoadProduct": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "carrier": { "type": "string", "enum": ["smart", "tnt", "globe", "tm", "dito", "gomo", "sun"] },
+          "product_code": { "type": "string" },
+          "product_name": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "load_type": { "type": "string" },
+          "face_value": { "type": "number", "format": "double" },
+          "markup_amount": { "type": "number", "format": "double" },
+          "validity_days": { "type": "integer", "nullable": true },
+          "is_active": { "type": "boolean" },
+          "source_url": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedPrepaidLoadProductResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean", "example": true },
+          "data": { "$ref": "#/components/schemas/PrepaidLoadProduct" }
+        }
+      },
+      "PrepaidLoadTransactionCreate": {
+        "type": "object",
+        "properties": {
+          "order_id": { "type": "string", "format": "uuid", "nullable": true },
+          "branch_id": { "type": "string", "format": "uuid", "nullable": true },
+          "customer_id": { "type": "string", "format": "uuid", "nullable": true },
+          "product_id": { "type": "string", "format": "uuid" },
+          "recipient_mobile_no": { "type": "string", "example": "09171234567" },
+          "reference_number": { "type": "string" },
+          "notes": { "type": "string", "nullable": true }
+        },
+        "required": ["product_id", "recipient_mobile_no", "reference_number"]
+      },
+      "PrepaidLoadTransaction": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "order_id": { "type": "string", "format": "uuid", "nullable": true },
+          "branch_id": { "type": "string", "format": "uuid", "nullable": true },
+          "customer_id": { "type": "string", "format": "uuid", "nullable": true },
+          "recipient_mobile_no": { "type": "string" },
+          "carrier": { "type": "string", "enum": ["smart", "tnt", "globe", "tm", "dito", "gomo", "sun"] },
+          "product_id": { "type": "string", "format": "uuid" },
+          "face_value": { "type": "number", "format": "double" },
+          "markup_amount": { "type": "number", "format": "double" },
+          "gross_amount": { "type": "number", "format": "double" },
+          "cash_impact": { "type": "number", "format": "double" },
+          "reference_number": { "type": "string" },
+          "received_by": { "type": "string", "format": "uuid", "nullable": true },
+          "notes": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreatedPrepaidLoadTransactionResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean", "example": true },
+          "data": { "$ref": "#/components/schemas/PrepaidLoadTransaction" }
+        }
+      },
       "PurchaseOrderCreate": {
         "type": "object",
         "properties": {
@@ -1795,7 +1942,7 @@
       "PaymentBreakdownItem": {
         "type": "object",
         "properties": {
-          "payment_method": { "type": "string", "enum": ["cash","gcash","bank_transfer","card","cod"] },
+          "payment_method": { "type": "string", "enum": ["cash","gcash","bank_transfer","card","cod","prepaid_load"] },
           "transaction_count": { "type": "integer" },
           "total_amount": { "type": "number", "format": "double" }
         }
@@ -1803,7 +1950,7 @@
       "TopProductItem": {
         "type": "object",
         "properties": {
-          "product_variant_id": { "type": "string", "format": "uuid" },
+          "product_variant_id": { "type": "string" },
           "sku": { "type": "string" },
           "product_name": { "type": "string" },
           "size": { "type": "string" },
@@ -1859,6 +2006,7 @@
           "other_cash_impact_amount": { "type": "number", "format": "double", "description": "Net cash impact from other transactions (e.g., GCash cash_in/cash_out)." },
           "gcash_cash_in_total": { "type": "number", "format": "double", "description": "Total positive cash impact from GCash cash-in transactions." },
           "gcash_cash_out_total": { "type": "number", "format": "double", "description": "Total cash removed through GCash cash-out transactions." },
+          "prepaid_load_total": { "type": "number", "format": "double", "description": "Total prepaid load gross sales for the business date." },
           "expected_cash_on_hand": { "type": "number", "format": "double" },
           "closing_cash_breakdown": { "type": "array", "items": { "$ref": "#/components/schemas/CashBreakdownLine" } },
           "actual_cash_on_hand": { "type": "number", "format": "double" },
@@ -1878,6 +2026,7 @@
           "cash_sales_amount": { "type": "number", "format": "double" },
           "gcash_cash_in_total": { "type": "number", "format": "double" },
           "gcash_cash_out_total": { "type": "number", "format": "double" },
+          "prepaid_load_total": { "type": "number", "format": "double" },
           "net_other_cash_impact_amount": { "type": "number", "format": "double" },
           "total_cash_inflows": { "type": "number", "format": "double" },
           "total_cash_outflows": { "type": "number", "format": "double" },
