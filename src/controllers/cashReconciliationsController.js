@@ -188,10 +188,21 @@ async function get(req, res) {
   }
 }
 
+async function remove(req, res) {
+  try {
+    const row = await cashReconciliationsModel.deleteById(req.params.id);
+    if (!row) return res.status(404).json({ ok: false, error: 'cash reconciliation not found' });
+    return res.status(204).send();
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+}
+
 module.exports = {
   open,
   upsertOpen,
   close,
   list,
   get,
+  remove,
 };

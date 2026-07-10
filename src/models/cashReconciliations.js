@@ -294,10 +294,17 @@ async function list({ limit = 100, offset = 0, branch_id, from, to } = {}) {
   return rows;
 }
 
+async function deleteById(id) {
+  const sql = 'DELETE FROM cash_reconciliations WHERE id = $1 RETURNING *';
+  const { rows } = await pool.query(sql, [id]);
+  return rows[0] || null;
+}
+
 module.exports = {
   openDay,
   upsertOpeningDay,
   closeDay,
   findById,
   list,
+  deleteById,
 };
