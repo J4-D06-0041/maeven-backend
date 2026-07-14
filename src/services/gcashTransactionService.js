@@ -51,10 +51,10 @@ async function create(data, userId) {
     const feeAmount = roundMoney(Number(feeRule.fee_amount || 0));
     const grossAmount = roundMoney(principalAmount + feeAmount);
 
-    // Cash-out only deducts principal from register cash, while fee is still recorded.
+    // Cash-out affects register cash as: fee in minus principal out.
     const cashImpact = serviceType === 'cash_in'
       ? grossAmount
-      : roundMoney(principalAmount * -1);
+      : roundMoney(feeAmount - principalAmount);
 
     const created = await gcashTransactionsModel.createWithClient({
       order_id: assertUuidOrNull(payload.order_id, 'order_id'),

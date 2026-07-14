@@ -32,7 +32,12 @@ async function getSalesTotals(client, { branch_id, business_date }) {
   const otherCashImpactSql = `
     SELECT COALESCE(SUM(x.cash_impact), 0) AS other_cash_impact_amount
     FROM (
-      SELECT gt.cash_impact
+      SELECT
+        CASE
+          WHEN gt.service_type = 'cash_out' THEN (COALESCE(gt.fee_amount, 0) - ABS(COALESCE(gt.principal_amount, 0)))
+          WHEN gt.service_type = 'cash_in' THEN ABS(COALESCE(gt.gross_amount, gt.cash_impact, 0))
+          ELSE COALESCE(gt.cash_impact, 0)
+        END AS cash_impact
       FROM gcash_transactions gt
       WHERE gt.branch_id = $1
         AND gt.created_at >= $2::date
@@ -50,8 +55,8 @@ async function getSalesTotals(client, { branch_id, business_date }) {
 
   const gcashBreakdownSql = `
     SELECT
-      COALESCE(SUM(CASE WHEN gt.service_type = 'cash_in' THEN gt.cash_impact ELSE 0 END), 0) AS gcash_cash_in_total,
-      COALESCE(SUM(CASE WHEN gt.service_type = 'cash_out' THEN ABS(gt.cash_impact) ELSE 0 END), 0) AS gcash_cash_out_total
+      COALESCE(SUM(CASE WHEN gt.service_type = 'cash_in' THEN ABS(COALESCE(gt.gross_amount, gt.cash_impact, 0)) ELSE 0 END), 0) AS gcash_cash_in_total,
+      COALESCE(SUM(CASE WHEN gt.service_type = 'cash_out' THEN ABS(COALESCE(gt.principal_amount, gt.cash_impact, 0)) ELSE 0 END), 0) AS gcash_cash_out_total
     FROM gcash_transactions gt
     WHERE gt.branch_id = $1
       AND gt.created_at >= $2::date
