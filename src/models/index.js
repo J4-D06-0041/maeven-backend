@@ -30,6 +30,7 @@ module.exports = {
     purchase_orders: 'purchase_orders',
     purchase_order_items: 'purchase_order_items',
     expenses: 'expenses',
-    cash_reconciliations: 'cash_reconciliations'
+    cash_reconciliations: 'cash_reconciliations',
+    bank_deposits: 'bank_deposits'
   }
 };

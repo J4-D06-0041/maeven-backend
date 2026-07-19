@@ -6,6 +6,28 @@ function toMoney(value) {
   return Number(n.toFixed(2));
 }
 
+const RECONCILIATION_SELECT = `
+  cr.*,
+  COALESCE((
+    SELECT SUM(bd.amount)
+    FROM bank_deposits bd
+    WHERE bd.branch_id = cr.branch_id
+      AND bd.business_date = cr.business_date
+  ), 0) AS total_bank_deposit_amount,
+  CASE
+    WHEN cr.closed_at IS NULL THEN NULL
+    ELSE GREATEST(
+      COALESCE(cr.actual_cash_on_hand, 0) - COALESCE((
+        SELECT SUM(bd.amount)
+        FROM bank_deposits bd
+        WHERE bd.branch_id = cr.branch_id
+          AND bd.business_date = cr.business_date
+      ), 0),
+      0
+    )
+  END AS remaining_cash_on_register
+`;
+
 async function getSalesTotals(client, { branch_id, business_date }) {
   const date = business_date;
 
@@ -106,7 +128,7 @@ async function openDay({ branch_id, business_date, opening_cash_breakdown, openi
   ];
 
   const { rows } = await pool.query(sql, params);
-  return rows[0];
+  return findById(rows[0].id);
 }
 
 async function upsertOpeningDay({ branch_id, business_date, opening_cash_breakdown, opening_cash_total, notes, opened_by }) {
@@ -146,7 +168,7 @@ async function upsertOpeningDay({ branch_id, business_date, opening_cash_breakdo
       ]);
       const created = createdRes.rows[0];
       await client.query('COMMIT');
-      return created;
+      return findById(created.id);
     }
 
     if (existing.closed_at) {
@@ -175,7 +197,7 @@ async function upsertOpeningDay({ branch_id, business_date, opening_cash_breakdo
     ]);
 
     await client.query('COMMIT');
-    return rows[0];
+    return findById(rows[0].id);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -250,7 +272,7 @@ async function closeDay({ id, closing_cash_breakdown, closing_cash_total, closed
 
     const { rows } = await client.query(updateSql, params);
     await client.query('COMMIT');
-    return rows[0];
+    return findById(rows[0].id);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -260,7 +282,13 @@ async function closeDay({ id, closing_cash_breakdown, closing_cash_total, closed
 }
 
 async function findById(id) {
-  const { rows } = await pool.query('SELECT * FROM cash_reconciliations WHERE id = $1', [id]);
+  const { rows } = await pool.query(`
+    SELECT
+      ${RECONCILIATION_SELECT}
+    FROM cash_reconciliations cr
+    WHERE cr.id = $1
+    LIMIT 1
+  `, [id]);
   return rows[0] || null;
 }
 
@@ -270,27 +298,28 @@ async function list({ limit = 100, offset = 0, branch_id, from, to } = {}) {
 
   if (branch_id) {
     params.push(branch_id);
-    where.push(`branch_id = $${params.length}`);
+    where.push(`cr.branch_id = $${params.length}`);
   }
 
   if (from) {
     params.push(from);
-    where.push(`business_date >= $${params.length}::date`);
+    where.push(`cr.business_date >= $${params.length}::date`);
   }
 
   if (to) {
     params.push(to);
-    where.push(`business_date <= $${params.length}::date`);
+    where.push(`cr.business_date <= $${params.length}::date`);
   }
 
   params.push(Number(limit) || 100);
   params.push(Number(offset) || 0);
 
   const sql = `
-    SELECT *
-    FROM cash_reconciliations
+    SELECT
+      ${RECONCILIATION_SELECT}
+    FROM cash_reconciliations cr
     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-    ORDER BY business_date DESC, created_at DESC
+    ORDER BY cr.business_date DESC, cr.created_at DESC
     LIMIT $${params.length - 1}
     OFFSET $${params.length}
   `;

@@ -124,8 +124,10 @@ async function dailyCashReconciliation(req, res) {
     const cashIn = Number(data.gcash_cash_in_total || 0);
     const cashOut = Number(data.gcash_cash_out_total || 0);
     const prepaidLoadTotal = Number(data.prepaid_load_total || 0);
+    const bankDeposits = Number(data.total_bank_deposit_amount || 0);
     const expected = Number(data.expected_cash_on_hand || 0);
     const actual = Number(data.actual_cash_on_hand || 0);
+    const remaining = Number(data.remaining_cash_on_register || 0);
     const variance = Number(data.variance_amount || 0);
 
     const withAuditSummary = {
@@ -135,11 +137,13 @@ async function dailyCashReconciliation(req, res) {
         gcash_cash_in_total: Number(cashIn.toFixed(2)),
         gcash_cash_out_total: Number(cashOut.toFixed(2)),
         prepaid_load_total: Number(prepaidLoadTotal.toFixed(2)),
+        total_bank_deposit_amount: Number(bankDeposits.toFixed(2)),
         net_other_cash_impact_amount: Number(otherNet.toFixed(2)),
         total_cash_inflows: Number((cashSales + cashIn).toFixed(2)),
-        total_cash_outflows: Number(cashOut.toFixed(2)),
+        total_cash_outflows: Number((cashOut + bankDeposits).toFixed(2)),
         expected_cash_on_hand: Number(expected.toFixed(2)),
         actual_cash_on_hand: Number(actual.toFixed(2)),
+        remaining_cash_on_register: Number(remaining.toFixed(2)),
         variance_amount: Number(variance.toFixed(2)),
         is_short: Boolean(data.is_short),
       },

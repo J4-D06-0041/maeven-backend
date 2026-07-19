@@ -45,6 +45,9 @@ async function createSchema() {
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'purchase_order_status') THEN
           CREATE TYPE purchase_order_status AS ENUM ('draft','estimated','ordered','received','cancelled');
         END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'bank_deposit_status') THEN
+          CREATE TYPE bank_deposit_status AS ENUM ('posted','reversed');
+        END IF;
       END$$;
     `);
 
@@ -343,6 +346,41 @@ async function createSchema() {
 
       CREATE INDEX IF NOT EXISTS ix_cash_reconciliations_branch_date
         ON cash_reconciliations(branch_id, business_date DESC);
+
+      CREATE TABLE IF NOT EXISTS bank_deposits (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+        cash_reconciliation_id UUID REFERENCES cash_reconciliations(id) ON DELETE SET NULL,
+        business_date DATE NOT NULL,
+        amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (amount <> 0),
+        bank_account VARCHAR(255) NOT NULL,
+        reference_number VARCHAR(255) NOT NULL,
+        depositor_name VARCHAR(255) NOT NULL,
+        photo_proof_url TEXT NOT NULL,
+        status bank_deposit_status NOT NULL DEFAULT 'posted',
+        reversal_of_id UUID REFERENCES bank_deposits(id) ON DELETE RESTRICT,
+        reversal_reason TEXT,
+        reversed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        reversed_at TIMESTAMP WITH TIME ZONE,
+        notes TEXT,
+        deposited_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        deposited_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+      );
+
+      CREATE INDEX IF NOT EXISTS ix_bank_deposits_branch_business_date
+        ON bank_deposits(branch_id, business_date DESC);
+
+      CREATE INDEX IF NOT EXISTS ix_bank_deposits_reconciliation
+        ON bank_deposits(cash_reconciliation_id);
+
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_bank_deposits_reference_number
+        ON bank_deposits(reference_number);
+
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_bank_deposits_reversal_of_id
+        ON bank_deposits(reversal_of_id)
+        WHERE reversal_of_id IS NOT NULL;
     `);
 
     // add photo_url to products if missing (safe for existing DBs)
@@ -452,6 +490,50 @@ async function createSchema() {
     await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS ux_cash_reconciliations_branch_date ON cash_reconciliations(branch_id, business_date);`);
     await client.query(`CREATE INDEX IF NOT EXISTS ix_cash_reconciliations_branch_date ON cash_reconciliations(branch_id, business_date DESC);`);
+
+    // add bank_deposits columns for existing DBs that predate audit-trail updates
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id) ON DELETE CASCADE;`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS cash_reconciliation_id UUID REFERENCES cash_reconciliations(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS business_date DATE;`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS amount NUMERIC(12,2) DEFAULT 0;`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS bank_account VARCHAR(255);`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS reference_number VARCHAR(255);`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS depositor_name VARCHAR(255);`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS photo_proof_url TEXT;`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS status bank_deposit_status DEFAULT 'posted';`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS reversal_of_id UUID REFERENCES bank_deposits(id) ON DELETE RESTRICT;`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS reversal_reason TEXT;`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS reversed_by UUID REFERENCES users(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS reversed_at TIMESTAMP WITH TIME ZONE;`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS notes TEXT;`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS deposited_by UUID REFERENCES users(id) ON DELETE SET NULL;`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS deposited_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
+    await client.query(`ALTER TABLE bank_deposits ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now();`);
+
+    await client.query(`UPDATE bank_deposits SET bank_account = COALESCE(NULLIF(bank_account, ''), 'Unspecified') WHERE bank_account IS NULL OR bank_account = '';`);
+    await client.query(`UPDATE bank_deposits SET reference_number = COALESCE(NULLIF(reference_number, ''), CONCAT('LEGACY-', id::text)) WHERE reference_number IS NULL OR reference_number = '';`);
+    await client.query(`UPDATE bank_deposits SET depositor_name = COALESCE(NULLIF(depositor_name, ''), 'Unspecified') WHERE depositor_name IS NULL OR depositor_name = '';`);
+    await client.query(`UPDATE bank_deposits SET photo_proof_url = COALESCE(NULLIF(photo_proof_url, ''), 'legacy://not-provided') WHERE photo_proof_url IS NULL OR photo_proof_url = '';`);
+    await client.query(`UPDATE bank_deposits SET business_date = CURRENT_DATE WHERE business_date IS NULL;`);
+    await client.query(`UPDATE bank_deposits SET status = 'posted' WHERE status IS NULL;`);
+
+    await client.query(`ALTER TABLE bank_deposits ALTER COLUMN branch_id SET NOT NULL;`);
+    await client.query(`ALTER TABLE bank_deposits ALTER COLUMN business_date SET NOT NULL;`);
+    await client.query(`ALTER TABLE bank_deposits ALTER COLUMN amount SET NOT NULL;`);
+    await client.query(`ALTER TABLE bank_deposits ALTER COLUMN bank_account SET NOT NULL;`);
+    await client.query(`ALTER TABLE bank_deposits ALTER COLUMN reference_number SET NOT NULL;`);
+    await client.query(`ALTER TABLE bank_deposits ALTER COLUMN depositor_name SET NOT NULL;`);
+    await client.query(`ALTER TABLE bank_deposits ALTER COLUMN photo_proof_url SET NOT NULL;`);
+    await client.query(`ALTER TABLE bank_deposits ALTER COLUMN status SET NOT NULL;`);
+
+    await client.query(`ALTER TABLE bank_deposits DROP CONSTRAINT IF EXISTS bank_deposits_amount_check;`);
+    await client.query(`ALTER TABLE bank_deposits ADD CONSTRAINT bank_deposits_amount_check CHECK (amount <> 0);`);
+
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS ux_bank_deposits_reference_number ON bank_deposits(reference_number);`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS ux_bank_deposits_reversal_of_id ON bank_deposits(reversal_of_id) WHERE reversal_of_id IS NOT NULL;`);
+    await client.query(`CREATE INDEX IF NOT EXISTS ix_bank_deposits_branch_business_date ON bank_deposits(branch_id, business_date DESC);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS ix_bank_deposits_reconciliation ON bank_deposits(cash_reconciliation_id);`);
 
     await client.query('COMMIT');
     console.log('Schema initialization complete');

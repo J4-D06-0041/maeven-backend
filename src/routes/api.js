@@ -29,6 +29,7 @@ const prepaidLoadTransactionsController = require('../controllers/prepaidLoadTra
 const reportsController = require('../controllers/reportsController');
 const cashReconciliationsController = require('../controllers/cashReconciliationsController');
 const prepaidLoadProductsModel = require('../models/prepaidLoadProducts');
+const bankDepositsController = require('../controllers/bankDepositsController');
 
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -227,5 +228,12 @@ router.post('/cash-reconciliations/open', auth.requireAuth, cashReconciliationsC
 router.put('/cash-reconciliations/open', auth.requireAuth, cashReconciliationsController.upsertOpen);
 router.post('/cash-reconciliations/:id/close', auth.requireAuth, cashReconciliationsController.close);
 router.delete('/cash-reconciliations/:id', auth.requireAuth, cashReconciliationsController.remove);
+
+// Bank deposits (admin only)
+router.get('/bank-deposits', auth.requireAuth, bankDepositsController.list);
+router.get('/bank-deposits/:id', auth.requireAuth, bankDepositsController.get);
+router.post('/bank-deposits', auth.requireAuth, bankDepositsController.create);
+router.post('/bank-deposits/:id/reverse', auth.requireAuth, bankDepositsController.reverse);
+router.delete('/bank-deposits/:id', auth.requireAuth, bankDepositsController.remove);
 
 module.exports = router;

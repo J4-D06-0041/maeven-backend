@@ -184,6 +184,24 @@ const schemas = {
     description: { type: 'text', allowNull: true },
     amount: { type: 'numeric', allowNull: true },
     expense_date: { type: 'date', allowNull: true },
+  },
+  bank_deposits: {
+    branch_id: { type: 'uuid', required: true },
+    cash_reconciliation_id: { type: 'uuid', allowNull: true },
+    business_date: { type: 'date', required: true },
+    amount: { type: 'numeric', required: true },
+    bank_account: { type: 'string', required: true },
+    reference_number: { type: 'string', required: true },
+    depositor_name: { type: 'string', required: true },
+    photo_proof_url: { type: 'string', required: true },
+    status: { type: 'enum', values: ['posted', 'reversed'], allowNull: true },
+    reversal_of_id: { type: 'uuid', allowNull: true },
+    reversal_reason: { type: 'text', allowNull: true },
+    reversed_by: { type: 'uuid', allowNull: true },
+    reversed_at: { type: 'timestamp', allowNull: true },
+    notes: { type: 'text', allowNull: true },
+    deposited_by: { type: 'uuid', allowNull: true },
+    deposited_at: { type: 'timestamp', allowNull: true },
   }
 };
 
