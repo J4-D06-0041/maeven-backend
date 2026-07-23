@@ -92,4 +92,8 @@ async function list(opts) {
   return gcashTransactionsModel.list(opts);
 }
 
-module.exports = { create, getById, list };
+async function remove(id) {
+  return gcashTransactionsModel.remove(id);
+}
+
+module.exports = { create, getById, list, remove };

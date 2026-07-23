@@ -1,4 +1,4 @@
-const { insert, getById, getAll, pool } = require('./_helpers');
+const { insert, getById, getAll, deleteById, pool } = require('./_helpers');
 
 const table = 'gcash_transactions';
 
@@ -27,4 +27,8 @@ async function list(opts) {
   return getAll(table, opts);
 }
 
-module.exports = { create, createWithClient, findById, list };
+async function remove(id) {
+  return deleteById(table, id);
+}
+
+module.exports = { create, createWithClient, findById, list, remove };

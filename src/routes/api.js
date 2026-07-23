@@ -160,6 +160,7 @@ router.delete(`${gfrBase}/:id`, auth.requireAuth, gfrCtrl.remove);
 router.get('/gcash-transactions', auth.requireAuth, gcashTransactionsController.list);
 router.get('/gcash-transactions/:id', auth.requireAuth, gcashTransactionsController.get);
 router.post('/gcash-transactions', auth.requireAuth, gcashTransactionsController.create);
+router.delete('/gcash-transactions/:id', auth.requireAuth, gcashTransactionsController.remove);
 
 // Prepaid load catalog (editable markup per load item)
 wire('prepaid-load-products', prepaidLoadProductsModel, {

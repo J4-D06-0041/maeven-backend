@@ -1,5 +1,13 @@
 const service = require('../services/gcashTransactionService');
 
+function assertAdmin(req, res) {
+  if (!req.user || req.user.role !== 'admin') {
+    res.status(403).json({ ok: false, error: 'admin access required' });
+    return false;
+  }
+  return true;
+}
+
 async function list(req, res) {
   try {
     const items = await service.list({
@@ -35,4 +43,19 @@ async function create(req, res) {
   }
 }
 
-module.exports = { list, get, create };
+async function remove(req, res) {
+  try {
+    if (!assertAdmin(req, res)) return;
+
+    const removed = await service.remove(req.params.id);
+    if (!removed) {
+      return res.status(404).json({ ok: false, error: 'gcash transaction not found' });
+    }
+
+    return res.json({ ok: true, data: removed });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+}
+
+module.exports = { list, get, create, remove };
