@@ -56,7 +56,7 @@ async function getSalesTotals(client, { branch_id, business_date }) {
     FROM (
       SELECT
         CASE
-          WHEN gt.service_type = 'cash_out' THEN (COALESCE(gt.fee_amount, 0) - ABS(COALESCE(gt.principal_amount, 0)))
+          WHEN gt.service_type = 'cash_out' THEN (-ABS(COALESCE(gt.principal_amount, 0)))
           WHEN gt.service_type = 'cash_in' THEN ABS(COALESCE(gt.gross_amount, gt.cash_impact, 0))
           ELSE COALESCE(gt.cash_impact, 0)
         END AS cash_impact
