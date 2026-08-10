@@ -21,6 +21,7 @@ const purchaseOrderItemsModel = require('../models/purchaseOrderItems');
 const purchaseOrderEstimatesController = require('../controllers/purchaseOrderEstimatesController');
 const purchaseOrderItemService = require('../services/purchaseOrderItemService');
 const purchaseOrderService = require('../services/purchaseOrderService');
+const orderItemService = require('../services/orderItemService');
 const gcashFeeRuleService = require('../services/gcashFeeRuleService');
 const expensesModel = require('../models/expenses');
 const returnsModel = require('../models/returns');
@@ -134,7 +135,17 @@ wire('products', productsModel, { resourceName: 'product' });
 }
 wire('inventories', inventoriesModel, { resourceName: 'inventory' });
 wire('orders', ordersModel, { resourceName: 'order' });
-wire('order-items', orderItemsModel, { resourceName: 'order_item' });
+// Use a custom service for order items so creating one also records the sale
+// movement and deducts stock at the order's branch.
+{
+  const ctrl = createController(orderItemService, 'order_item');
+  const base = '/order-items';
+  router.get(base, ctrl.list);
+  router.get(`${base}/:id`, ctrl.get);
+  router.post(base, ctrl.create);
+  router.put(`${base}/:id`, ctrl.update);
+  router.delete(`${base}/:id`, ctrl.remove);
+}
 // Nested route: list items for a given order
 router.get('/orders/:orderId/items', async (req, res) => {
   try {
@@ -173,31 +184,28 @@ router.get('/prepaid-load-transactions', auth.requireAuth, prepaidLoadTransactio
 router.get('/prepaid-load-transactions/:id', auth.requireAuth, prepaidLoadTransactionsController.get);
 router.post('/prepaid-load-transactions', auth.requireAuth, prepaidLoadTransactionsController.create);
 
-wire('purchase-orders', purchaseOrdersModel, { resourceName: 'purchase_order' });
+wire('purchase-orders', purchaseOrdersModel, { resourceName: 'purchase_order', requireAuth: true });
 // Use a custom service for purchase order items to enforce creation rules
 const poiCtrl = createController(purchaseOrderItemService, 'purchase_order_item');
 const poiBase = '/purchase-order-items';
 router.get(poiBase, poiCtrl.list);
 router.get(`${poiBase}/:id`, poiCtrl.get);
-router.post(poiBase, poiCtrl.create);
-router.put(`${poiBase}/:id`, poiCtrl.update);
-router.delete(`${poiBase}/:id`, poiCtrl.remove);
+router.post(poiBase, auth.requireAuth, poiCtrl.create);
+router.put(`${poiBase}/:id`, auth.requireAuth, poiCtrl.update);
+router.delete(`${poiBase}/:id`, auth.requireAuth, poiCtrl.remove);
 
 // Nested routes for purchase order estimates (under a purchase order)
 router.get('/purchase-orders/:poId/estimates', purchaseOrderEstimatesController.list);
-router.post('/purchase-orders/:poId/estimates', purchaseOrderEstimatesController.create);
+router.post('/purchase-orders/:poId/estimates', auth.requireAuth, purchaseOrderEstimatesController.create);
 router.get('/purchase-orders/:poId/estimates/:id', purchaseOrderEstimatesController.get);
-router.put('/purchase-orders/:poId/estimates/:id', purchaseOrderEstimatesController.update);
-router.delete('/purchase-orders/:poId/estimates/:id', purchaseOrderEstimatesController.remove);
+router.put('/purchase-orders/:poId/estimates/:id', auth.requireAuth, purchaseOrderEstimatesController.update);
+router.delete('/purchase-orders/:poId/estimates/:id', auth.requireAuth, purchaseOrderEstimatesController.remove);
 // Get purchase orders with aggregated item totals (items_total, items_count)
 router.get('/purchase-orders-with-totals', async (req, res) => {
   try {
     const limit = Number(req.query.limit) || 100;
     const offset = Number(req.query.offset) || 0;
-    const where = req.query.where || '';
-    // Note: `where` should be a SQL fragment and `params` may be passed as a JSON array in query (not common).
-    const params = [];
-    const items = await purchaseOrdersModel.listWithItemTotals({ limit, offset, where, params });
+    const items = await purchaseOrdersModel.listWithItemTotals({ limit, offset });
     return res.json({ ok: true, data: items });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
