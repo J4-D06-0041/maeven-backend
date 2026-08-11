@@ -82,7 +82,7 @@ async function createSchema() {
       CREATE TABLE IF NOT EXISTS customers (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         full_name VARCHAR(255) NOT NULL,
-        phone VARCHAR(100) NOT NULL UNIQUE,
+        phone VARCHAR(100) UNIQUE,
         email VARCHAR(255),
         address TEXT,
         customer_type customer_type DEFAULT 'walk-in',
@@ -92,7 +92,7 @@ async function createSchema() {
       CREATE TABLE IF NOT EXISTS suppliers (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         supplier_name VARCHAR(255),
-        phone VARCHAR(100) NOT NULL,
+        phone VARCHAR(100),
         email VARCHAR(255),
         address TEXT,
         supplier_type supplier_type DEFAULT 'physical',

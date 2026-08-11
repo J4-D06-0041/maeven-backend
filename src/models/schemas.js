@@ -24,14 +24,14 @@ const schemas = {
   },
   customers: {
     full_name: { type: 'string', required: true },
-    phone: { type: 'string', required: true },
+    phone: { type: 'string', allowNull: true },
     email: { type: 'string', allowNull: true },
     address: { type: 'text', allowNull: true },
     customer_type: { type: 'enum', values: ['online', 'walk-in'], allowNull: false },
   },
   suppliers: {
     supplier_name: { type: 'string', allowNull: true },
-    phone: { type: 'string', required: true },
+    phone: { type: 'string', allowNull: true },
     email: { type: 'string', allowNull: true },
     address: { type: 'text', allowNull: true },
     supplier_type: { type: 'enum', values: ['online', 'physical', 'both'], allowNull: false },
