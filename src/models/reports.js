@@ -75,26 +75,33 @@ async function getSalesSummary({ period = 'daily', from, to, branch_id, sales_ch
   }
 
   params.push(includePrepaid);
-  const includePrepaidParam = params.length;
+  const includeServicesParam = params.length;
 
   let prepaidBranchFilter = '';
+  let gcashBranchFilter = '';
   if (branch_id) {
     prepaidBranchFilter = `AND pt.branch_id = $3`;
+    gcashBranchFilter = `AND gt.branch_id = $3`;
   }
 
   const where = whereParts.join(' AND ');
 
   const sql = `
-    WITH order_rows AS (
+    WITH order_items_rollup AS (
+      SELECT order_id, SUM(quantity) AS item_qty
+      FROM order_items
+      GROUP BY order_id
+    ),
+    order_rows AS (
       SELECT
         DATE_TRUNC('${trunc}', o.created_at) AS period,
-        COUNT(DISTINCT o.id) AS order_count,
+        COUNT(o.id) AS order_count,
         COALESCE(SUM(o.total_amount + COALESCE(o.discount_amount, 0)), 0) AS gross_sales,
-        COALESCE(SUM(o.discount_amount), 0) AS total_discounts,
+        COALESCE(SUM(COALESCE(o.discount_amount, 0)), 0) AS total_discounts,
         COALESCE(SUM(o.total_amount), 0) AS net_sales,
-        COALESCE(SUM(oi.quantity), 0) AS items_sold
+        COALESCE(SUM(COALESCE(oi.item_qty, 0)), 0) AS items_sold
       FROM orders o
-      LEFT JOIN order_items oi ON oi.order_id = o.id
+      LEFT JOIN order_items_rollup oi ON oi.order_id = o.id
       WHERE ${where}
       GROUP BY 1
     ),
@@ -110,7 +117,22 @@ async function getSalesSummary({ period = 'daily', from, to, branch_id, sales_ch
       WHERE pt.created_at >= $1::date
         AND pt.created_at < ($2::date + INTERVAL '1 day')
         ${prepaidBranchFilter}
-        AND $${includePrepaidParam}::boolean = TRUE
+        AND $${includeServicesParam}::boolean = TRUE
+      GROUP BY 1
+    ),
+    gcash_rows AS (
+      SELECT
+        DATE_TRUNC('${trunc}', gt.created_at) AS period,
+        COUNT(gt.id) AS order_count,
+        COALESCE(SUM(gt.gross_amount), 0) AS gross_sales,
+        0::numeric AS total_discounts,
+        COALESCE(SUM(gt.gross_amount), 0) AS net_sales,
+        COUNT(gt.id) AS items_sold
+      FROM gcash_transactions gt
+      WHERE gt.created_at >= $1::date
+        AND gt.created_at < ($2::date + INTERVAL '1 day')
+        ${gcashBranchFilter}
+        AND $${includeServicesParam}::boolean = TRUE
       GROUP BY 1
     )
     SELECT
@@ -124,6 +146,8 @@ async function getSalesSummary({ period = 'daily', from, to, branch_id, sales_ch
       SELECT * FROM order_rows
       UNION ALL
       SELECT * FROM prepaid_rows
+      UNION ALL
+      SELECT * FROM gcash_rows
     ) x
     GROUP BY period
     ORDER BY period
@@ -154,15 +178,21 @@ async function getPaymentBreakdown({ from, to, branch_id } = {}) {
     `pt.created_at >= $1::date`,
     `pt.created_at < ($2::date + INTERVAL '1 day')`,
   ];
+  const gcashWhereParts = [
+    `gt.created_at >= $1::date`,
+    `gt.created_at < ($2::date + INTERVAL '1 day')`,
+  ];
 
   if (branch_id) {
     params.push(branch_id);
     whereParts.push(`o.branch_id = $${params.length}`);
     prepaidWhereParts.push(`pt.branch_id = $${params.length}`);
+    gcashWhereParts.push(`gt.branch_id = $${params.length}`);
   }
 
   const where = whereParts.join(' AND ');
   const prepaidWhere = prepaidWhereParts.join(' AND ');
+  const gcashWhere = gcashWhereParts.join(' AND ');
 
   const sql = `
     SELECT
@@ -171,7 +201,7 @@ async function getPaymentBreakdown({ from, to, branch_id } = {}) {
       COALESCE(SUM(x.total_amount), 0) AS total_amount
     FROM (
       SELECT
-        p.payment_method,
+        p.payment_method::text AS payment_method,
         COUNT(p.id) AS transaction_count,
         COALESCE(SUM(p.amount), 0) AS total_amount
       FROM payments p
@@ -182,11 +212,23 @@ async function getPaymentBreakdown({ from, to, branch_id } = {}) {
       UNION ALL
 
       SELECT
-        'cash'::text AS payment_method,
+        'prepaid_load'::text AS payment_method,
         COUNT(pt.id) AS transaction_count,
         COALESCE(SUM(pt.gross_amount), 0) AS total_amount
       FROM prepaid_load_transactions pt
       WHERE ${prepaidWhere}
+
+      UNION ALL
+
+      -- GCash cash-in/cash-out services are reported separately from the
+      -- 'gcash' payment method, which means a retail order settled by GCash
+      -- transfer. Merging them would conflate two different things.
+      SELECT
+        'gcash_service'::text AS payment_method,
+        COUNT(gt.id) AS transaction_count,
+        COALESCE(SUM(gt.gross_amount), 0) AS total_amount
+      FROM gcash_transactions gt
+      WHERE ${gcashWhere}
     ) x
     GROUP BY x.payment_method
     ORDER BY total_amount DESC
@@ -311,25 +353,32 @@ async function getOverviewSummary({ from, to, branch_id, sales_channel_id } = {}
   }
 
   params.push(includePrepaid);
-  const includePrepaidParam = params.length;
+  const includeServicesParam = params.length;
 
   let prepaidBranchFilter = '';
+  let gcashBranchFilter = '';
   if (branch_id) {
     prepaidBranchFilter = `AND pt.branch_id = $3`;
+    gcashBranchFilter = `AND gt.branch_id = $3`;
   }
 
   const where = whereParts.join(' AND ');
 
   const sql = `
-    WITH order_totals AS (
+    WITH order_items_rollup AS (
+      SELECT order_id, SUM(quantity) AS item_qty
+      FROM order_items
+      GROUP BY order_id
+    ),
+    order_totals AS (
       SELECT
-        COUNT(DISTINCT o.id) AS order_count,
+        COUNT(o.id) AS order_count,
         COALESCE(SUM(o.total_amount + COALESCE(o.discount_amount, 0)), 0) AS gross_sales,
-        COALESCE(SUM(o.discount_amount), 0) AS total_discounts,
+        COALESCE(SUM(COALESCE(o.discount_amount, 0)), 0) AS total_discounts,
         COALESCE(SUM(o.total_amount), 0) AS net_sales,
-        COALESCE(SUM(oi.quantity), 0) AS items_sold
+        COALESCE(SUM(COALESCE(oi.item_qty, 0)), 0) AS items_sold
       FROM orders o
-      LEFT JOIN order_items oi ON oi.order_id = o.id
+      LEFT JOIN order_items_rollup oi ON oi.order_id = o.id
       WHERE ${where}
     ),
     prepaid_totals AS (
@@ -343,20 +392,35 @@ async function getOverviewSummary({ from, to, branch_id, sales_channel_id } = {}
       WHERE pt.created_at >= $1::date
         AND pt.created_at < ($2::date + INTERVAL '1 day')
         ${prepaidBranchFilter}
-        AND $${includePrepaidParam}::boolean = TRUE
+        AND $${includeServicesParam}::boolean = TRUE
+    ),
+    gcash_totals AS (
+      SELECT
+        COUNT(gt.id) AS order_count,
+        COALESCE(SUM(gt.gross_amount), 0) AS gross_sales,
+        0::numeric AS total_discounts,
+        COALESCE(SUM(gt.gross_amount), 0) AS net_sales,
+        COUNT(gt.id) AS items_sold
+      FROM gcash_transactions gt
+      WHERE gt.created_at >= $1::date
+        AND gt.created_at < ($2::date + INTERVAL '1 day')
+        ${gcashBranchFilter}
+        AND $${includeServicesParam}::boolean = TRUE
     )
     SELECT
-      (COALESCE(o.order_count, 0) + COALESCE(p.order_count, 0))::bigint AS order_count,
-      COALESCE(o.gross_sales, 0) + COALESCE(p.gross_sales, 0) AS gross_sales,
-      COALESCE(o.total_discounts, 0) + COALESCE(p.total_discounts, 0) AS total_discounts,
-      COALESCE(o.net_sales, 0) + COALESCE(p.net_sales, 0) AS net_sales,
-      (COALESCE(o.items_sold, 0) + COALESCE(p.items_sold, 0))::bigint AS items_sold,
+      (COALESCE(o.order_count, 0) + COALESCE(p.order_count, 0) + COALESCE(g.order_count, 0))::bigint AS order_count,
+      COALESCE(o.gross_sales, 0) + COALESCE(p.gross_sales, 0) + COALESCE(g.gross_sales, 0) AS gross_sales,
+      COALESCE(o.total_discounts, 0) + COALESCE(p.total_discounts, 0) + COALESCE(g.total_discounts, 0) AS total_discounts,
+      COALESCE(o.net_sales, 0) + COALESCE(p.net_sales, 0) + COALESCE(g.net_sales, 0) AS net_sales,
+      (COALESCE(o.items_sold, 0) + COALESCE(p.items_sold, 0) + COALESCE(g.items_sold, 0))::bigint AS items_sold,
       CASE
-        WHEN (COALESCE(o.order_count, 0) + COALESCE(p.order_count, 0)) = 0 THEN 0
-        ELSE (COALESCE(o.net_sales, 0) + COALESCE(p.net_sales, 0)) / (COALESCE(o.order_count, 0) + COALESCE(p.order_count, 0))
+        WHEN (COALESCE(o.order_count, 0) + COALESCE(p.order_count, 0) + COALESCE(g.order_count, 0)) = 0 THEN 0
+        ELSE (COALESCE(o.net_sales, 0) + COALESCE(p.net_sales, 0) + COALESCE(g.net_sales, 0))
+             / (COALESCE(o.order_count, 0) + COALESCE(p.order_count, 0) + COALESCE(g.order_count, 0))
       END AS avg_order_value
     FROM order_totals o
     CROSS JOIN prepaid_totals p
+    CROSS JOIN gcash_totals g
   `;
 
   const { rows } = await pool.query(sql, params);
@@ -379,6 +443,7 @@ async function getDailyCashReconciliation({ branch_id, business_date } = {}) {
       cr.other_cash_impact_amount,
       cr.gcash_cash_in_total,
       cr.gcash_cash_out_total,
+      cr.total_expenses_amount,
       COALESCE((
         SELECT SUM(pt.gross_amount)
         FROM prepaid_load_transactions pt
@@ -426,4 +491,10 @@ async function getDailyCashReconciliation({ branch_id, business_date } = {}) {
   return rows[0] || null;
 }
 
-module.exports = { getSalesSummary, getPaymentBreakdown, getTopProducts, getOverviewSummary, getDailyCashReconciliation };
+module.exports = {
+  getSalesSummary,
+  getPaymentBreakdown,
+  getTopProducts,
+  getOverviewSummary,
+  getDailyCashReconciliation,
+};

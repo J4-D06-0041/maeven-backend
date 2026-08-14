@@ -330,6 +330,7 @@ async function createSchema() {
         other_cash_impact_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
         gcash_cash_in_total NUMERIC(12,2) NOT NULL DEFAULT 0,
         gcash_cash_out_total NUMERIC(12,2) NOT NULL DEFAULT 0,
+        total_expenses_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
         expected_cash_on_hand NUMERIC(12,2) NOT NULL DEFAULT 0,
         actual_cash_on_hand NUMERIC(12,2) NOT NULL DEFAULT 0,
         variance_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -385,6 +386,8 @@ async function createSchema() {
 
     // add photo_url to products if missing (safe for existing DBs)
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS photo_url TEXT;`);
+    // cash expenses are now subtracted from expected cash on hand (safe for existing DBs)
+    await client.query(`ALTER TABLE cash_reconciliations ADD COLUMN IF NOT EXISTS total_expenses_amount NUMERIC(12,2) NOT NULL DEFAULT 0;`);
     // add discount fields to orders if missing (safe for existing DBs)
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_percentage NUMERIC(5,2) DEFAULT 0;`);
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12,2) DEFAULT 0;`);

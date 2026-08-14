@@ -235,6 +235,7 @@ router.get('/cash-reconciliations', auth.requireAuth, cashReconciliationsControl
 router.get('/cash-reconciliations/:id', auth.requireAuth, cashReconciliationsController.get);
 router.post('/cash-reconciliations/open', auth.requireAuth, cashReconciliationsController.open);
 router.put('/cash-reconciliations/open', auth.requireAuth, cashReconciliationsController.upsertOpen);
+router.get('/cash-reconciliations/:id/preview', auth.requireAuth, cashReconciliationsController.previewClose);
 router.post('/cash-reconciliations/:id/close', auth.requireAuth, cashReconciliationsController.close);
 router.delete('/cash-reconciliations/:id', auth.requireAuth, cashReconciliationsController.remove);
 

@@ -9,6 +9,13 @@ function toMoney(value) {
 const RECONCILIATION_SELECT = `
   cr.*,
   COALESCE((
+    SELECT SUM(pt.gross_amount)
+    FROM prepaid_load_transactions pt
+    WHERE pt.branch_id = cr.branch_id
+      AND pt.created_at >= cr.business_date::date
+      AND pt.created_at < (cr.business_date::date + INTERVAL '1 day')
+  ), 0) AS prepaid_load_total,
+  COALESCE((
     SELECT SUM(bd.amount)
     FROM bank_deposits bd
     WHERE bd.branch_id = cr.branch_id
@@ -31,13 +38,44 @@ const RECONCILIATION_SELECT = `
 async function getSalesTotals(client, { branch_id, business_date }) {
   const date = business_date;
 
+  // Total sales counts merchandise orders plus GCash and prepaid load at their
+  // full gross amount, matching the throughput definition used by the sales
+  // reports. This figure is for display only -- expected cash on hand is
+  // derived from cash_sales_amount and other_cash_impact_amount instead.
   const totalSalesSql = `
-    SELECT COALESCE(SUM(o.total_amount), 0) AS total_sales_amount
-    FROM orders o
-    WHERE o.order_status NOT IN ('cancelled')
-      AND o.branch_id = $1
-      AND o.created_at >= $2::date
-      AND o.created_at < ($2::date + INTERVAL '1 day')
+    SELECT (
+      COALESCE((
+        SELECT SUM(o.total_amount)
+        FROM orders o
+        WHERE o.order_status NOT IN ('cancelled')
+          AND o.branch_id = $1
+          AND o.created_at >= $2::date
+          AND o.created_at < ($2::date + INTERVAL '1 day')
+      ), 0)
+      + COALESCE((
+        SELECT SUM(gt.gross_amount)
+        FROM gcash_transactions gt
+        WHERE gt.branch_id = $1
+          AND gt.created_at >= $2::date
+          AND gt.created_at < ($2::date + INTERVAL '1 day')
+      ), 0)
+      + COALESCE((
+        SELECT SUM(pt.gross_amount)
+        FROM prepaid_load_transactions pt
+        WHERE pt.branch_id = $1
+          AND pt.created_at >= $2::date
+          AND pt.created_at < ($2::date + INTERVAL '1 day')
+      ), 0)
+    ) AS total_sales_amount
+  `;
+
+  // All expenses are treated as cash paid out of the register; the expenses
+  // table has no payment-method column to distinguish otherwise.
+  const expensesSql = `
+    SELECT COALESCE(SUM(e.amount), 0) AS total_expenses_amount
+    FROM expenses e
+    WHERE e.branch_id = $1
+      AND e.expense_date = $2::date
   `;
 
   const cashSalesSql = `
@@ -85,11 +123,28 @@ async function getSalesTotals(client, { branch_id, business_date }) {
       AND gt.created_at < ($2::date + INTERVAL '1 day')
   `;
 
-  const [totalSalesRes, cashSalesRes, otherCashImpactRes, gcashBreakdownRes] = await Promise.all([
+  const prepaidTotalSql = `
+    SELECT COALESCE(SUM(pt.gross_amount), 0) AS prepaid_load_total
+    FROM prepaid_load_transactions pt
+    WHERE pt.branch_id = $1
+      AND pt.created_at >= $2::date
+      AND pt.created_at < ($2::date + INTERVAL '1 day')
+  `;
+
+  const [
+    totalSalesRes,
+    cashSalesRes,
+    otherCashImpactRes,
+    gcashBreakdownRes,
+    expensesRes,
+    prepaidTotalRes,
+  ] = await Promise.all([
     client.query(totalSalesSql, [branch_id, date]),
     client.query(cashSalesSql, [branch_id, date]),
     client.query(otherCashImpactSql, [branch_id, date]),
     client.query(gcashBreakdownSql, [branch_id, date]),
+    client.query(expensesSql, [branch_id, date]),
+    client.query(prepaidTotalSql, [branch_id, date]),
   ]);
 
   return {
@@ -98,7 +153,25 @@ async function getSalesTotals(client, { branch_id, business_date }) {
     other_cash_impact_amount: toMoney(otherCashImpactRes.rows[0]?.other_cash_impact_amount),
     gcash_cash_in_total: toMoney(gcashBreakdownRes.rows[0]?.gcash_cash_in_total),
     gcash_cash_out_total: toMoney(gcashBreakdownRes.rows[0]?.gcash_cash_out_total),
+    total_expenses_amount: toMoney(expensesRes.rows[0]?.total_expenses_amount),
+    prepaid_load_total: toMoney(prepaidTotalRes.rows[0]?.prepaid_load_total),
   };
+}
+
+/**
+ * Expected cash on hand at close:
+ *   opening + cash sales + net other cash impact - cash expenses
+ *
+ * Bank deposits are deliberately excluded: they are made after the closing
+ * count, so they reduce remaining_cash_on_register rather than expected cash.
+ */
+function computeExpectedCash(openingCashTotal, totals) {
+  return toMoney(
+    Number(openingCashTotal || 0)
+    + Number(totals.cash_sales_amount || 0)
+    + Number(totals.other_cash_impact_amount || 0)
+    - Number(totals.total_expenses_amount || 0)
+  );
 }
 
 async function openDay({ branch_id, business_date, opening_cash_breakdown, opening_cash_total, notes, opened_by }) {
@@ -216,17 +289,16 @@ async function closeDay({ id, closing_cash_breakdown, closing_cash_total, closed
     if (!existing) {
       throw new Error('cash reconciliation not found');
     }
+    if (existing.closed_at) {
+      throw new Error('this day is already closed');
+    }
 
     const totals = await getSalesTotals(client, {
       branch_id: existing.branch_id,
       business_date: existing.business_date,
     });
 
-    const expectedCash = toMoney(
-      Number(existing.opening_cash_total || 0)
-      + Number(totals.cash_sales_amount || 0)
-      + Number(totals.other_cash_impact_amount || 0)
-    );
+    const expectedCash = computeExpectedCash(existing.opening_cash_total, totals);
     const actualCash = toMoney(closing_cash_total);
     const variance = toMoney(actualCash - expectedCash);
     const isShort = variance < 0;
@@ -241,12 +313,13 @@ async function closeDay({ id, closing_cash_breakdown, closing_cash_total, closed
         other_cash_impact_amount = $6,
         gcash_cash_in_total = $7,
         gcash_cash_out_total = $8,
-        expected_cash_on_hand = $9,
-        actual_cash_on_hand = $10,
-        variance_amount = $11,
-        is_short = $12,
-        closed_by = $13,
-        notes = COALESCE($14, notes),
+        total_expenses_amount = $9,
+        expected_cash_on_hand = $10,
+        actual_cash_on_hand = $11,
+        variance_amount = $12,
+        is_short = $13,
+        closed_by = $14,
+        notes = COALESCE($15, notes),
         closed_at = now(),
         updated_at = now()
       WHERE id = $1
@@ -262,6 +335,7 @@ async function closeDay({ id, closing_cash_breakdown, closing_cash_total, closed
       totals.other_cash_impact_amount,
       totals.gcash_cash_in_total,
       totals.gcash_cash_out_total,
+      totals.total_expenses_amount,
       expectedCash,
       actualCash,
       variance,
@@ -276,6 +350,39 @@ async function closeDay({ id, closing_cash_breakdown, closing_cash_total, closed
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Compute the same totals closeDay would use, without writing anything.
+ * The Closing screen reads this so the figures a cashier approves are exactly
+ * the figures that get stored.
+ */
+async function previewClose(id) {
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query('SELECT * FROM cash_reconciliations WHERE id = $1 LIMIT 1', [id]);
+    const existing = rows[0];
+    if (!existing) {
+      throw new Error('cash reconciliation not found');
+    }
+
+    const totals = await getSalesTotals(client, {
+      branch_id: existing.branch_id,
+      business_date: existing.business_date,
+    });
+
+    return {
+      id: existing.id,
+      branch_id: existing.branch_id,
+      business_date: existing.business_date,
+      opening_cash_total: toMoney(existing.opening_cash_total),
+      closed_at: existing.closed_at,
+      ...totals,
+      expected_cash_on_hand: computeExpectedCash(existing.opening_cash_total, totals),
+    };
   } finally {
     client.release();
   }
@@ -338,6 +445,7 @@ module.exports = {
   openDay,
   upsertOpeningDay,
   closeDay,
+  previewClose,
   findById,
   list,
   deleteById,
