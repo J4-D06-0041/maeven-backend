@@ -1,6 +1,23 @@
 const { pool } = require('../db');
 const { validate } = require('./schemas');
 
+// Contact fields that are optional across the app (customers, suppliers,
+// users, branches, etc.). Blank strings are normalized to NULL so that
+// leaving them empty never trips a UNIQUE constraint (e.g. customers.phone,
+// users.phone) or leaves stray '' values in the database.
+const OPTIONAL_CONTACT_FIELDS = ['phone', 'email'];
+
+function normalizeContactFields(data) {
+  if (!data || typeof data !== 'object') return data;
+  const out = { ...data };
+  OPTIONAL_CONTACT_FIELDS.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(out, field) && typeof out[field] === 'string' && out[field].trim() === '') {
+      out[field] = null;
+    }
+  });
+  return out;
+}
+
 async function hasColumn(table, column) {
   const text = `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 LIMIT 1`;
   const vals = [table, column];
@@ -22,6 +39,7 @@ function _ensureDataProvided(defMessage) {
 
 async function insert(table, data) {
   _ensureDataProvided(data);
+  data = normalizeContactFields(data);
   // Validate required fields for insert
   try {
     validate(table, data, { requireAll: true });
@@ -46,6 +64,7 @@ async function insert(table, data) {
 }
 
 async function update(table, id, data) {
+  data = normalizeContactFields(data);
   const keys = Object.keys(data || {});
   if (!keys.length) throw new Error('No data provided for update');
   // Validate provided fields for update (do not require required fields)
