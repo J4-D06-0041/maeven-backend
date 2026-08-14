@@ -228,6 +228,7 @@ router.get('/reports/sales', reportsController.salesSummary);
 router.get('/reports/sales/overview', reportsController.overviewSummary);
 router.get('/reports/sales/payments', reportsController.paymentBreakdown);
 router.get('/reports/sales/top-products', reportsController.topProducts);
+router.get('/reports/profitability', auth.requireAuth, reportsController.profitability);
 router.get('/reports/cash-reconciliation/daily', auth.requireAuth, reportsController.dailyCashReconciliation);
 
 // Cash reconciliation workflow
@@ -235,6 +236,7 @@ router.get('/cash-reconciliations', auth.requireAuth, cashReconciliationsControl
 router.get('/cash-reconciliations/:id', auth.requireAuth, cashReconciliationsController.get);
 router.post('/cash-reconciliations/open', auth.requireAuth, cashReconciliationsController.open);
 router.put('/cash-reconciliations/open', auth.requireAuth, cashReconciliationsController.upsertOpen);
+router.get('/cash-reconciliations/:id/preview', auth.requireAuth, cashReconciliationsController.previewClose);
 router.post('/cash-reconciliations/:id/close', auth.requireAuth, cashReconciliationsController.close);
 router.delete('/cash-reconciliations/:id', auth.requireAuth, cashReconciliationsController.remove);
 

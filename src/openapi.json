@@ -1956,7 +1956,7 @@
       "PaymentBreakdownItem": {
         "type": "object",
         "properties": {
-          "payment_method": { "type": "string", "enum": ["cash","gcash","bank_transfer","card","cod","prepaid_load"] },
+          "payment_method": { "type": "string", "enum": ["cash","gcash","bank_transfer","card","cod","prepaid_load","gcash_service"] },
           "transaction_count": { "type": "integer" },
           "total_amount": { "type": "number", "format": "double" }
         }

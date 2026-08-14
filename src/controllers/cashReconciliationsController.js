@@ -1,4 +1,5 @@
 const cashReconciliationsModel = require('../models/cashReconciliations');
+const { buildAuditSummary } = require('../services/cashSummary');
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -42,35 +43,6 @@ function totalFromBreakdown(breakdown) {
       .reduce((sum, item) => sum + Number(item.amount || 0), 0)
       .toFixed(2)
   );
-}
-
-function buildAuditSummary(data) {
-  const cashSales = Number(data.cash_sales_amount || 0);
-  const otherNet = Number(data.other_cash_impact_amount || 0);
-  const cashIn = Number(data.gcash_cash_in_total || 0);
-  const cashOut = Number(data.gcash_cash_out_total || 0);
-  const prepaidLoadTotal = Number(data.prepaid_load_total || 0);
-  const bankDeposits = Number(data.total_bank_deposit_amount || 0);
-  const expected = Number(data.expected_cash_on_hand || 0);
-  const actual = Number(data.actual_cash_on_hand || 0);
-  const remaining = Number(data.remaining_cash_on_register || 0);
-  const variance = Number(data.variance_amount || 0);
-
-  return {
-    cash_sales_amount: Number(cashSales.toFixed(2)),
-    gcash_cash_in_total: Number(cashIn.toFixed(2)),
-    gcash_cash_out_total: Number(cashOut.toFixed(2)),
-    prepaid_load_total: Number(prepaidLoadTotal.toFixed(2)),
-    total_bank_deposit_amount: Number(bankDeposits.toFixed(2)),
-    net_other_cash_impact_amount: Number(otherNet.toFixed(2)),
-    total_cash_inflows: Number((cashSales + cashIn).toFixed(2)),
-    total_cash_outflows: Number((cashOut + bankDeposits).toFixed(2)),
-    expected_cash_on_hand: Number(expected.toFixed(2)),
-    actual_cash_on_hand: Number(actual.toFixed(2)),
-    remaining_cash_on_register: Number(remaining.toFixed(2)),
-    variance_amount: Number(variance.toFixed(2)),
-    is_short: Boolean(data.is_short),
-  };
 }
 
 async function open(req, res) {
@@ -121,6 +93,21 @@ async function close(req, res) {
     });
 
     return res.json({ ok: true, data: row });
+  } catch (err) {
+    if (String(err.message || '').includes('not found')) {
+      return res.status(404).json({ ok: false, error: err.message });
+    }
+    if (String(err.message || '').includes('already closed')) {
+      return res.status(409).json({ ok: false, error: err.message });
+    }
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+}
+
+async function previewClose(req, res) {
+  try {
+    const data = await cashReconciliationsModel.previewClose(req.params.id);
+    return res.json({ ok: true, data });
   } catch (err) {
     if (String(err.message || '').includes('not found')) {
       return res.status(404).json({ ok: false, error: err.message });
@@ -206,6 +193,7 @@ module.exports = {
   open,
   upsertOpen,
   close,
+  previewClose,
   list,
   get,
   remove,
