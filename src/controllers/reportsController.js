@@ -99,6 +99,24 @@ async function topProducts(req, res) {
   }
 }
 
+async function profitability(req, res) {
+  try {
+    const dates = parseDateRange(req.query);
+    if (dates.error) return res.status(400).json({ ok: false, error: dates.error });
+
+    const data = await reportsModel.getProfitability({
+      from: dates.from,
+      to: dates.to,
+      branch_id: req.query.branch_id || undefined,
+      sales_channel_id: req.query.sales_channel_id || undefined,
+    });
+
+    return res.json({ ok: true, data });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+}
+
 async function dailyCashReconciliation(req, res) {
   try {
     const branch_id = req.query.branch_id;
@@ -131,4 +149,4 @@ async function dailyCashReconciliation(req, res) {
   }
 }
 
-module.exports = { salesSummary, overviewSummary, paymentBreakdown, topProducts, dailyCashReconciliation };
+module.exports = { salesSummary, overviewSummary, paymentBreakdown, topProducts, profitability, dailyCashReconciliation };

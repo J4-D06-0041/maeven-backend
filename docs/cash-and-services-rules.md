@@ -8,7 +8,7 @@ The rules are enforced in:
 
 - `src/models/cashReconciliations.js` — `getSalesTotals`, `computeExpectedCash`, `closeDay`
 - `src/services/cashSummary.js` — the audit summary shown on screen and printed
-- `src/models/reports.js` — the sales reports
+- `src/models/reports.js` — the sales reports and `getProfitability` (service margin)
 
 ---
 
@@ -140,10 +140,9 @@ not margin.** Services are counted at their full gross amount:
 Both GCash directions count, because both represent value transacted.
 
 The consequence worth knowing: **sales figures are not profit figures.** The
-business actually earned ₱23 in the load + GCash rows above, not ₱1,123. The
-margin is recorded (`gcash_transactions.fee_amount`,
-`prepaid_load_transactions.markup_amount`) but is not currently aggregated into
-any report. See Known gaps.
+business actually earned ₱23 in the load + GCash rows above, not ₱1,123.
+`fee_amount` and `markup_amount` are the real margin — see §7 for where that's
+reported.
 
 `total_sales_amount` on a reconciliation record uses this same definition, so it
 agrees with `/reports/sales/overview` for the same branch and day. It is a
@@ -176,14 +175,37 @@ merge them.
 
 ---
 
-## 7. Known gaps
+## 7. Service margin
+
+`fee_amount` (GCash) and `markup_amount` (prepaid load) are the real earned
+income — the rest of `gross_amount` is pass-through capital. This is reported
+via `GET /reports/profitability` (`src/models/reports.js:getProfitability`),
+which puts merchandise, GCash, and prepaid load on one shared shape:
+
+```
+                total              capital_cost         gain
+merchandise     order_items.subtotal   cost_price × qty     margin
+gcash           gross_amount            principal_amount     fee_amount
+prepaid_load    gross_amount            face_value            markup_amount
+```
+
+The endpoint returns both the row list and a server-computed summary
+(`total_selling`, `total_capital`, `total_gain`, `margin_percent`) so the
+Reports page's Profitability tab never re-derives these figures — the same
+rule that fixed the Closing screen's expected-cash drift. Cancelled orders are
+excluded, matching every other sales query. Filtering by `sales_channel_id`
+excludes GCash/prepaid rows, since services have no sales channel.
+
+`GCashTransactions.tsx` also shows a running "Total Fees Earned" card over the
+currently filtered transactions, for a same-page answer without opening
+Reports.
+
+## 8. Known gaps
 
 - **No e-wallet float tracking.** Nothing records the GCash or telco balance, so
   the system cannot answer "how much float is left?" A cash-in silently depletes
-  e-money and a cash-out silently accumulates it, with no visibility.
-- **Service margin is never reported.** `fee_amount` and `markup_amount` are
-  stored per transaction but aggregated nowhere. There is no "what did GCash earn
-  this month" figure.
+  e-money and a cash-out silently accumulates it, with no visibility. Service
+  margin is now reported (see §7); the wallet balance itself still isn't.
 - **Double-count risk.** `gcash_transactions.order_id` and
   `prepaid_load_transactions.order_id` are user-settable and nothing
   de-duplicates. Ringing a load up as a POS order *and* logging the prepaid

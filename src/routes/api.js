@@ -228,6 +228,7 @@ router.get('/reports/sales', reportsController.salesSummary);
 router.get('/reports/sales/overview', reportsController.overviewSummary);
 router.get('/reports/sales/payments', reportsController.paymentBreakdown);
 router.get('/reports/sales/top-products', reportsController.topProducts);
+router.get('/reports/profitability', auth.requireAuth, reportsController.profitability);
 router.get('/reports/cash-reconciliation/daily', auth.requireAuth, reportsController.dailyCashReconciliation);
 
 // Cash reconciliation workflow

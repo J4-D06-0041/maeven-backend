@@ -491,10 +491,165 @@ async function getDailyCashReconciliation({ branch_id, business_date } = {}) {
   return rows[0] || null;
 }
 
+function round2(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
+}
+
+/**
+ * Line-item profitability across merchandise, GCash services, and prepaid
+ * load, all on one shared shape (total / capital_cost / gain) so the report
+ * doesn't need a separate definition of margin per source.
+ *
+ *   merchandise   total = subtotal,       capital = cost_price * qty
+ *   gcash         total = gross_amount,   capital = principal_amount   (gain = fee_amount)
+ *   prepaid_load  total = gross_amount,   capital = face_value         (gain = markup_amount)
+ *
+ * Cancelled orders are excluded, matching every other sales query in this file.
+ * Filtering by sales_channel_id excludes GCash/prepaid rows (they have no
+ * sales channel), the same rule used by getSalesSummary/getOverviewSummary.
+ */
+async function getProfitability({ from, to, branch_id, sales_channel_id } = {}) {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+  const fromDate = from || today;
+  const toDate = to || today;
+  const includeServices = !sales_channel_id;
+
+  const params = [fromDate, toDate];
+  const whereParts = [
+    `o.order_status NOT IN ('cancelled')`,
+    `o.created_at >= $1::date`,
+    `o.created_at < ($2::date + INTERVAL '1 day')`,
+  ];
+
+  if (branch_id) {
+    params.push(branch_id);
+    whereParts.push(`o.branch_id = $${params.length}`);
+  }
+  if (sales_channel_id) {
+    params.push(sales_channel_id);
+    whereParts.push(`o.sales_channel_id = $${params.length}`);
+  }
+
+  params.push(includeServices);
+  const includeServicesParam = params.length;
+
+  let gcashBranchFilter = '';
+  let prepaidBranchFilter = '';
+  if (branch_id) {
+    gcashBranchFilter = `AND gt.branch_id = $3`;
+    prepaidBranchFilter = `AND pt.branch_id = $3`;
+  }
+
+  const where = whereParts.join(' AND ');
+
+  const sql = `
+    SELECT * FROM (
+      SELECT
+        'merchandise'::text AS source,
+        o.created_at AS occurred_at,
+        COALESCE(b.branch_name, '-') AS branch,
+        COALESCE(sc.channel_name, 'POS') AS sales_channel,
+        COALESCE(c.full_name, '-') AS customer,
+        COALESCE(p.product_name, '-') AS product,
+        COALESCE(NULLIF(CONCAT_WS(' / ', NULLIF(pv.size, ''), NULLIF(pv.color, ''), NULLIF(pv.class, '')), ''), '-') AS variant,
+        oi.unit_price AS price,
+        oi.quantity::numeric AS qty,
+        oi.subtotal AS total,
+        COALESCE(pv.cost_price, 0) AS cost_price,
+        COALESCE(pv.cost_price, 0) * oi.quantity AS capital_cost,
+        oi.subtotal - COALESCE(pv.cost_price, 0) * oi.quantity AS gain
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      LEFT JOIN product_variants pv ON pv.id = oi.product_variant_id
+      LEFT JOIN products p ON p.id = pv.product_id
+      LEFT JOIN branches b ON b.id = o.branch_id
+      LEFT JOIN sales_channels sc ON sc.id = o.sales_channel_id
+      LEFT JOIN customers c ON c.id = o.customer_id
+      WHERE ${where}
+
+      UNION ALL
+
+      SELECT
+        'gcash'::text AS source,
+        gt.created_at AS occurred_at,
+        COALESCE(b.branch_name, '-') AS branch,
+        'GCash'::text AS sales_channel,
+        COALESCE(c.full_name, '-') AS customer,
+        CASE gt.service_type WHEN 'cash_in' THEN 'GCash Cash In' ELSE 'GCash Cash Out' END AS product,
+        gt.reference_number AS variant,
+        gt.gross_amount AS price,
+        1::numeric AS qty,
+        gt.gross_amount AS total,
+        gt.principal_amount AS cost_price,
+        gt.principal_amount AS capital_cost,
+        gt.fee_amount AS gain
+      FROM gcash_transactions gt
+      LEFT JOIN branches b ON b.id = gt.branch_id
+      LEFT JOIN customers c ON c.id = gt.customer_id
+      WHERE gt.created_at >= $1::date
+        AND gt.created_at < ($2::date + INTERVAL '1 day')
+        ${gcashBranchFilter}
+        AND $${includeServicesParam}::boolean = TRUE
+
+      UNION ALL
+
+      SELECT
+        'prepaid_load'::text AS source,
+        pt.created_at AS occurred_at,
+        COALESCE(b.branch_name, '-') AS branch,
+        'Prepaid Load'::text AS sales_channel,
+        COALESCE(c.full_name, '-') AS customer,
+        CONCAT(UPPER(pt.carrier::text), ' - ', COALESCE(plp.product_name, 'Load')) AS product,
+        pt.recipient_mobile_no AS variant,
+        pt.gross_amount AS price,
+        1::numeric AS qty,
+        pt.gross_amount AS total,
+        pt.face_value AS cost_price,
+        pt.face_value AS capital_cost,
+        pt.markup_amount AS gain
+      FROM prepaid_load_transactions pt
+      LEFT JOIN prepaid_load_products plp ON plp.id = pt.product_id
+      LEFT JOIN branches b ON b.id = pt.branch_id
+      LEFT JOIN customers c ON c.id = pt.customer_id
+      WHERE pt.created_at >= $1::date
+        AND pt.created_at < ($2::date + INTERVAL '1 day')
+        ${prepaidBranchFilter}
+        AND $${includeServicesParam}::boolean = TRUE
+    ) x
+    ORDER BY occurred_at DESC
+  `;
+
+  const { rows } = await pool.query(sql, params);
+
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.total_selling += Number(r.total || 0);
+      acc.total_capital += Number(r.capital_cost || 0);
+      return acc;
+    },
+    { total_selling: 0, total_capital: 0 }
+  );
+
+  const total_selling = round2(totals.total_selling);
+  const total_capital = round2(totals.total_capital);
+  const total_gain = round2(total_selling - total_capital);
+  const margin_percent = total_selling > 0 ? round2((total_gain / total_selling) * 100) : 0;
+
+  return {
+    rows,
+    summary: { total_selling, total_capital, total_gain, margin_percent },
+  };
+}
+
 module.exports = {
   getSalesSummary,
   getPaymentBreakdown,
   getTopProducts,
   getOverviewSummary,
   getDailyCashReconciliation,
+  getProfitability,
 };
