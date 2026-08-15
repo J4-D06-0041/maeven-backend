@@ -39,6 +39,15 @@ async function create(data, userId) {
 
   const principalAmount = parsePositiveMoney(payload.principal_amount, 'principal_amount');
 
+  // Required so getSalesTotals (cashReconciliations.js) can find this
+  // transaction -- it filters `WHERE gt.branch_id = $1`, and NULL never
+  // matches, so a branchless row is silently excluded from every cash
+  // reconciliation forever. See docs/cash-and-services-rules.md.
+  const branchId = assertUuidOrNull(payload.branch_id, 'branch_id');
+  if (!branchId) {
+    throw new Error('branch_id is required');
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -58,7 +67,7 @@ async function create(data, userId) {
 
     const created = await gcashTransactionsModel.createWithClient({
       order_id: assertUuidOrNull(payload.order_id, 'order_id'),
-      branch_id: assertUuidOrNull(payload.branch_id, 'branch_id'),
+      branch_id: branchId,
       customer_id: assertUuidOrNull(payload.customer_id, 'customer_id'),
       service_type: serviceType,
       principal_amount: principalAmount,
