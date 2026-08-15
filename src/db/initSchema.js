@@ -384,6 +384,11 @@ async function createSchema() {
         WHERE reversal_of_id IS NOT NULL;
     `);
 
+    // relax NOT NULL left over from an earlier schema version, now that phone
+    // is optional app-wide (safe for existing DBs -- no-op if already nullable)
+    await client.query(`ALTER TABLE branches ALTER COLUMN phone DROP NOT NULL;`);
+    await client.query(`ALTER TABLE users ALTER COLUMN phone DROP NOT NULL;`);
+
     // add photo_url to products if missing (safe for existing DBs)
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS photo_url TEXT;`);
     // cash expenses are now subtracted from expected cash on hand (safe for existing DBs)
