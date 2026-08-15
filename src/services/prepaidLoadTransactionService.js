@@ -47,6 +47,14 @@ async function create(data, userId) {
 
   const recipientMobileNo = normalizeMobileNumber(payload.recipient_mobile_no);
 
+  // Required for the same reason as gcash_transactions.branch_id: getSalesTotals
+  // (cashReconciliations.js) filters `WHERE pt.branch_id = $1`, and a NULL
+  // branch would be silently excluded from every cash reconciliation.
+  const branchId = assertUuidOrNull(payload.branch_id, 'branch_id');
+  if (!branchId) {
+    throw new Error('branch_id is required');
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -65,7 +73,7 @@ async function create(data, userId) {
 
     const created = await prepaidLoadTransactionsModel.createWithClient({
       order_id: assertUuidOrNull(payload.order_id, 'order_id'),
-      branch_id: assertUuidOrNull(payload.branch_id, 'branch_id'),
+      branch_id: branchId,
       customer_id: assertUuidOrNull(payload.customer_id, 'customer_id'),
       recipient_mobile_no: recipientMobileNo,
       carrier: product.carrier,
