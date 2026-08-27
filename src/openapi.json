@@ -1515,7 +1515,8 @@
           "order_id": { "type": "string", "format": "uuid" },
           "product_variant_id": { "type": "string", "format": "uuid" },
           "quantity": { "type": "integer" },
-          "unit_price": { "type": "number", "format": "double" }
+          "unit_price": { "type": "number", "format": "double" },
+          "item_code": { "type": "string", "nullable": true, "description": "Optional code for this line item on an external sales platform (e.g. TikTok). Applies to all sales channels." }
         },
         "required": ["order_id","product_variant_id"]
       },
@@ -1527,7 +1528,8 @@
           "product_variant_id": { "type": "string", "format": "uuid" },
           "quantity": { "type": "integer" },
           "unit_price": { "type": "number", "format": "double" },
-          "subtotal": { "type": "number", "format": "double" }
+          "subtotal": { "type": "number", "format": "double" },
+          "item_code": { "type": "string", "nullable": true, "description": "Optional code for this line item on an external sales platform (e.g. TikTok). Applies to all sales channels." }
         }
       },
       "CreatedOrderItemResponse": { "type": "object", "properties": { "ok": { "type": "boolean", "example": true }, "data": { "$ref": "#/components/schemas/OrderItem" } } },

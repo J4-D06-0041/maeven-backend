@@ -172,7 +172,8 @@ async function createSchema() {
         product_variant_id UUID REFERENCES product_variants(id) ON DELETE SET NULL,
         quantity INTEGER NOT NULL DEFAULT 1,
         unit_price NUMERIC(12,2) DEFAULT 0,
-        subtotal NUMERIC(12,2) DEFAULT 0
+        subtotal NUMERIC(12,2) DEFAULT 0,
+        item_code VARCHAR(255)
       );
 
       CREATE TABLE IF NOT EXISTS payments (
@@ -396,6 +397,11 @@ async function createSchema() {
     // add discount fields to orders if missing (safe for existing DBs)
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_percentage NUMERIC(5,2) DEFAULT 0;`);
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12,2) DEFAULT 0;`);
+
+    // per-line platform item code (e.g. the TikTok/Shopee listing code for this
+    // item), captured at checkout for every sales channel. Optional -- walk-in
+    // cash sales leave it NULL.
+    await client.query(`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS item_code VARCHAR(255);`);
 
     // add is_active to product_variants if missing (safe for existing DBs)
     await client.query(`ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;`);
