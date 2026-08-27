@@ -119,12 +119,20 @@ const apiLimiter = rateLimit({
 app.use('/api/auth/login', loginLimiter);
 app.use('/api', apiLimiter);
 
-// API routes
-const apiRouter = require('./routes/api');
-app.use('/api', apiRouter);
-// Auth routes (login)
+// Auth routes (login).
+//
+// Mounted BEFORE the `/api` router deliberately. `routes/api.js` installs a
+// default-deny gate covering everything under `/api`, and Express runs mounts in
+// registration order -- so with `/api` mounted first, `POST /api/auth/login`
+// matched that gate and returned `authentication required` before ever reaching
+// the login handler. Nobody could sign in, because signing in was itself gated
+// behind having signed in.
 const authRouter = require('./routes/auth');
 app.use('/api/auth', authRouter);
+
+// API routes (default-deny -- see the gate in routes/api.js).
+const apiRouter = require('./routes/api');
+app.use('/api', apiRouter);
 
 // Swagger / OpenAPI UI -- only mounted when explicitly enabled. Publishing a
 // full description of every endpoint to anonymous callers is free
