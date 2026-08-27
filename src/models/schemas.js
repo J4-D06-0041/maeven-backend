@@ -90,6 +90,7 @@ const schemas = {
     quantity: { type: 'number', required: true },
     unit_price: { type: 'numeric', allowNull: true },
     subtotal: { type: 'numeric', allowNull: true },
+    item_code: { type: 'string', allowNull: true },
   },
   payments: {
     order_id: { type: 'uuid', required: true },
