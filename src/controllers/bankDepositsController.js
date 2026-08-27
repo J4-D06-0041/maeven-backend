@@ -1,17 +1,9 @@
 const bankDepositsModel = require('../models/bankDeposits');
 
-function assertAdmin(req, res) {
-  if (!req.user || req.user.role !== 'admin') {
-    res.status(403).json({ ok: false, error: 'admin access required' });
-    return false;
-  }
-  return true;
-}
-
+// Admin gating lives on the routes (`requireAdmin` in routes/api.js) rather
+// than being re-asserted in every handler here.
 async function list(req, res) {
   try {
-    if (!assertAdmin(req, res)) return;
-
     const rows = await bankDepositsModel.list({
       limit: Number(req.query.limit) || 100,
       offset: Number(req.query.offset) || 0,
@@ -30,8 +22,6 @@ async function list(req, res) {
 
 async function get(req, res) {
   try {
-    if (!assertAdmin(req, res)) return;
-
     const row = await bankDepositsModel.findById(req.params.id);
     if (!row) {
       return res.status(404).json({ ok: false, error: 'bank deposit not found' });
@@ -44,8 +34,6 @@ async function get(req, res) {
 
 async function create(req, res) {
   try {
-    if (!assertAdmin(req, res)) return;
-
     const payload = req.body && (req.body.bank_deposit || req.body.bank_deposits)
       ? (req.body.bank_deposit || req.body.bank_deposits)
       : req.body;
@@ -65,8 +53,6 @@ async function create(req, res) {
 
 async function reverse(req, res) {
   try {
-    if (!assertAdmin(req, res)) return;
-
     const payload = req.body && (req.body.bank_deposit_reversal || req.body.bank_deposit)
       ? (req.body.bank_deposit_reversal || req.body.bank_deposit)
       : req.body;
@@ -91,7 +77,6 @@ async function reverse(req, res) {
 }
 
 async function remove(req, res) {
-  if (!assertAdmin(req, res)) return;
   return res.status(405).json({
     ok: false,
     error: 'deletion is disabled for audit trail; use /bank-deposits/:id/reverse instead',

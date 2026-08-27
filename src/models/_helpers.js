@@ -18,6 +18,19 @@ function normalizeContactFields(data) {
   return out;
 }
 
+// Column lists are module constants (never request data), but they are
+// interpolated into SQL rather than parameterized, so reject anything that
+// isn't a plain identifier before it reaches a query.
+function columnList(columns) {
+  if (!Array.isArray(columns) || !columns.length) return '*';
+  columns.forEach((c) => {
+    if (typeof c !== 'string' || !/^[a-z_][a-z0-9_]*$/i.test(c)) {
+      throw new Error(`Unsafe column name: ${c}`);
+    }
+  });
+  return columns.join(', ');
+}
+
 async function hasColumn(table, column) {
   const text = `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 LIMIT 1`;
   const vals = [table, column];
@@ -37,7 +50,7 @@ function _ensureDataProvided(defMessage) {
   if (!defMessage) throw new Error('No data provided');
 }
 
-async function insert(table, data) {
+async function insert(table, data, { returning } = {}) {
   _ensureDataProvided(data);
   data = normalizeContactFields(data);
   // Validate required fields for insert
@@ -58,12 +71,12 @@ async function insert(table, data) {
   const cols = validKeys.join(', ');
   const placeholders = validKeys.map((_, i) => `$${i + 1}`).join(', ');
   const values = validKeys.map((k) => data[k]);
-  const text = `INSERT INTO ${table} (${cols}) VALUES (${placeholders}) RETURNING *`;
+  const text = `INSERT INTO ${table} (${cols}) VALUES (${placeholders}) RETURNING ${columnList(returning)}`;
   const { rows } = await pool.query(text, values);
   return rows[0];
 }
 
-async function update(table, id, data) {
+async function update(table, id, data, { returning } = {}) {
   data = normalizeContactFields(data);
   const keys = Object.keys(data || {});
   if (!keys.length) throw new Error('No data provided for update');
@@ -81,23 +94,26 @@ async function update(table, id, data) {
 
   const set = validKeys.map((k, i) => `${k}=$${i + 2}`).join(', ');
   const values = [id, ...validKeys.map((k) => data[k])];
-  const text = `UPDATE ${table} SET ${set} WHERE id=$1 RETURNING *`;
+  const text = `UPDATE ${table} SET ${set} WHERE id=$1 RETURNING ${columnList(returning)}`;
   const { rows } = await pool.query(text, values);
   return rows[0];
 }
 
-async function getById(table, id) {
-  const { rows } = await pool.query(`SELECT * FROM ${table} WHERE id=$1`, [id]);
+async function getById(table, id, { columns } = {}) {
+  const { rows } = await pool.query(`SELECT ${columnList(columns)} FROM ${table} WHERE id=$1`, [id]);
   return rows[0] || null;
 }
 
-async function deleteById(table, id) {
-  const { rows } = await pool.query(`DELETE FROM ${table} WHERE id=$1 RETURNING *`, [id]);
+async function deleteById(table, id, { returning } = {}) {
+  const { rows } = await pool.query(
+    `DELETE FROM ${table} WHERE id=$1 RETURNING ${columnList(returning)}`,
+    [id]
+  );
   return rows[0] || null;
 }
 
-async function getAll(table, { limit = 100, offset = 0, where = '', params = [] } = {}) {
-  let text = `SELECT * FROM ${table}`;
+async function getAll(table, { limit = 100, offset = 0, where = '', params = [], columns } = {}) {
+  let text = `SELECT ${columnList(columns)} FROM ${table}`;
   if (where) text += ` WHERE ${where}`;
 
   // Order by created_at when available; otherwise fall back to id (newest first)

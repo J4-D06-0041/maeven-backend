@@ -17,7 +17,9 @@ const schemas = {
     full_name: { type: 'string', allowNull: true },
     phone: { type: 'string', allowNull: true },
     email: { type: 'string', allowNull: true },
-    password_hash: { type: 'text', allowNull: true },
+    // `password_hash` is deliberately absent: it is not client-writable. The
+    // users model strips it from any payload and derives it from a plain
+    // `password` instead, so a caller cannot set the stored hash directly.
     role: { type: 'enum', values: ['admin', 'staff', 'cashier'], allowNull: false },
     branch_id: { type: 'uuid', allowNull: true },
     is_active: { type: 'boolean', allowNull: true },
