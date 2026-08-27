@@ -1,5 +1,6 @@
 const express = require('express');
 const fs = require('fs');
+const config = require('../config');
 const path = require('path');
 const { createService } = require('../services/genericService');
 const { createController } = require('../controllers/genericController');
@@ -37,8 +38,14 @@ const auth = require('../middleware/auth');
 // Attach decoded user (if Authorization header with valid JWT is present)
 router.use(auth);
 
-// Serve the OpenAPI JSON for import tools (e.g., bolt.new)
+// Serve the OpenAPI JSON for import tools (e.g., bolt.new).
+//
+// Declared above the authentication gate because Swagger UI fetches it from the
+// browser without a token -- so it is only served at all when API docs are
+// explicitly enabled, and 404s otherwise rather than advertising every route to
+// anonymous callers.
 router.get('/openapi.json', (req, res) => {
+  if (!config.exposeApiDocs) return res.status(404).json({ ok: false, error: 'not found' });
   try {
     const specPath = path.join(__dirname, '..', 'openapi.json');
     const raw = fs.readFileSync(specPath, 'utf8');
@@ -49,26 +56,44 @@ router.get('/openapi.json', (req, res) => {
   }
 });
 
+// Default deny. Every route below this line requires a valid session.
+//
+// This used to be opt-in per route (`wire(..., { requireAuth: true })`), and
+// most routes never opted in -- leaving `POST /api/users`, a full
+// admin-takeover path, open to anonymous callers. Inverting it means a route
+// added later is private automatically; making one public has to be a
+// deliberate edit above this gate.
+router.use((req, res, next) => {
+  // CORS preflight carries no Authorization header by design.
+  if (req.method === 'OPTIONS') return next();
+  return auth.requireAuth(req, res, next);
+});
+
+// Role guards layered on top of the gate above.
+const requireAdmin = auth.requireRole('admin');
+// Reports and cash summaries are not for cashiers, but the sidebar does show
+// them to staff -- so they are gated to admin+staff rather than admin alone.
+const requireStaff = auth.requireRole('admin', 'staff');
+
+// `adminOnly` restricts the whole resource; `adminWrites` leaves reads open to
+// any signed-in user (e.g. every page needs the branch list) but restricts
+// create/update/delete.
 function wire(path, model, opts = {}) {
   const svc = createService(model);
   const ctrl = createController(svc, opts.resourceName || path);
   const base = `/${path}`;
-  router.get(base, ctrl.list);
-  router.get(`${base}/:id`, ctrl.get);
-  if (opts.requireAuth) {
-    router.post(base, auth.requireAuth, ctrl.create);
-    router.put(`${base}/:id`, auth.requireAuth, ctrl.update);
-    router.delete(`${base}/:id`, auth.requireAuth, ctrl.remove);
-  } else {
-    router.post(base, ctrl.create);
-    router.put(`${base}/:id`, ctrl.update);
-    router.delete(`${base}/:id`, ctrl.remove);
-  }
+  const readGuard = opts.adminOnly ? [requireAdmin] : [];
+  const writeGuard = opts.adminOnly || opts.adminWrites ? [requireAdmin] : [];
+  router.get(base, ...readGuard, ctrl.list);
+  router.get(`${base}/:id`, ...readGuard, ctrl.get);
+  router.post(base, ...writeGuard, ctrl.create);
+  router.put(`${base}/:id`, ...writeGuard, ctrl.update);
+  router.delete(`${base}/:id`, ...writeGuard, ctrl.remove);
 }
 
-wire('branches', branchesModel, { resourceName: 'branch' });
+wire('branches', branchesModel, { resourceName: 'branch', adminWrites: true });
 wire('sales-channels', salesChannelsModel, { resourceName: 'sales_channel' });
-wire('users', usersModel, { resourceName: 'user' });
+wire('users', usersModel, { resourceName: 'user', adminOnly: true });
 wire('customers', customersModel, { resourceName: 'customer' });
 wire('suppliers', suppliersModel, { resourceName: 'supplier' });
 wire('categories', categoriesModel, { resourceName: 'category' });
@@ -158,48 +183,47 @@ router.get('/orders/:orderId/items', async (req, res) => {
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
-wire('payments', paymentsModel, { resourceName: 'payment', requireAuth: true });
+wire('payments', paymentsModel, { resourceName: 'payment' });
 const gfrCtrl = createController(gcashFeeRuleService, 'gcash_fee_rule');
 const gfrBase = '/gcash-fee-rules';
 router.get(gfrBase, gfrCtrl.list);
 router.get(`${gfrBase}/:id`, gfrCtrl.get);
-router.post(gfrBase, auth.requireAuth, gfrCtrl.create);
-router.put(`${gfrBase}/:id`, auth.requireAuth, gfrCtrl.update);
-router.delete(`${gfrBase}/:id`, auth.requireAuth, gfrCtrl.remove);
+router.post(gfrBase, requireAdmin, gfrCtrl.create);
+router.put(`${gfrBase}/:id`, requireAdmin, gfrCtrl.update);
+router.delete(`${gfrBase}/:id`, requireAdmin, gfrCtrl.remove);
 
 // Custom routes for GCash transactions to enforce fee-by-range and cash-impact rules.
-router.get('/gcash-transactions', auth.requireAuth, gcashTransactionsController.list);
-router.get('/gcash-transactions/:id', auth.requireAuth, gcashTransactionsController.get);
-router.post('/gcash-transactions', auth.requireAuth, gcashTransactionsController.create);
-router.delete('/gcash-transactions/:id', auth.requireAuth, gcashTransactionsController.remove);
+router.get('/gcash-transactions', gcashTransactionsController.list);
+router.get('/gcash-transactions/:id', gcashTransactionsController.get);
+router.post('/gcash-transactions', gcashTransactionsController.create);
+router.delete('/gcash-transactions/:id', requireAdmin, gcashTransactionsController.remove);
 
 // Prepaid load catalog (editable markup per load item)
 wire('prepaid-load-products', prepaidLoadProductsModel, {
   resourceName: 'prepaid_load_product',
-  requireAuth: true,
 });
 
 // Prepaid load transactions
-router.get('/prepaid-load-transactions', auth.requireAuth, prepaidLoadTransactionsController.list);
-router.get('/prepaid-load-transactions/:id', auth.requireAuth, prepaidLoadTransactionsController.get);
-router.post('/prepaid-load-transactions', auth.requireAuth, prepaidLoadTransactionsController.create);
+router.get('/prepaid-load-transactions', prepaidLoadTransactionsController.list);
+router.get('/prepaid-load-transactions/:id', prepaidLoadTransactionsController.get);
+router.post('/prepaid-load-transactions', prepaidLoadTransactionsController.create);
 
-wire('purchase-orders', purchaseOrdersModel, { resourceName: 'purchase_order', requireAuth: true });
+wire('purchase-orders', purchaseOrdersModel, { resourceName: 'purchase_order' });
 // Use a custom service for purchase order items to enforce creation rules
 const poiCtrl = createController(purchaseOrderItemService, 'purchase_order_item');
 const poiBase = '/purchase-order-items';
 router.get(poiBase, poiCtrl.list);
 router.get(`${poiBase}/:id`, poiCtrl.get);
-router.post(poiBase, auth.requireAuth, poiCtrl.create);
-router.put(`${poiBase}/:id`, auth.requireAuth, poiCtrl.update);
-router.delete(`${poiBase}/:id`, auth.requireAuth, poiCtrl.remove);
+router.post(poiBase, poiCtrl.create);
+router.put(`${poiBase}/:id`, poiCtrl.update);
+router.delete(`${poiBase}/:id`, poiCtrl.remove);
 
 // Nested routes for purchase order estimates (under a purchase order)
 router.get('/purchase-orders/:poId/estimates', purchaseOrderEstimatesController.list);
-router.post('/purchase-orders/:poId/estimates', auth.requireAuth, purchaseOrderEstimatesController.create);
+router.post('/purchase-orders/:poId/estimates', purchaseOrderEstimatesController.create);
 router.get('/purchase-orders/:poId/estimates/:id', purchaseOrderEstimatesController.get);
-router.put('/purchase-orders/:poId/estimates/:id', auth.requireAuth, purchaseOrderEstimatesController.update);
-router.delete('/purchase-orders/:poId/estimates/:id', auth.requireAuth, purchaseOrderEstimatesController.remove);
+router.put('/purchase-orders/:poId/estimates/:id', purchaseOrderEstimatesController.update);
+router.delete('/purchase-orders/:poId/estimates/:id', purchaseOrderEstimatesController.remove);
 // Get purchase orders with aggregated item totals (items_total, items_count)
 router.get('/purchase-orders-with-totals', async (req, res) => {
   try {
@@ -228,23 +252,23 @@ router.get('/reports/sales', reportsController.salesSummary);
 router.get('/reports/sales/overview', reportsController.overviewSummary);
 router.get('/reports/sales/payments', reportsController.paymentBreakdown);
 router.get('/reports/sales/top-products', reportsController.topProducts);
-router.get('/reports/profitability', auth.requireAuth, reportsController.profitability);
-router.get('/reports/cash-reconciliation/daily', auth.requireAuth, reportsController.dailyCashReconciliation);
+router.get('/reports/profitability', requireStaff, reportsController.profitability);
+router.get('/reports/cash-reconciliation/daily', requireStaff, reportsController.dailyCashReconciliation);
 
 // Cash reconciliation workflow
-router.get('/cash-reconciliations', auth.requireAuth, cashReconciliationsController.list);
-router.get('/cash-reconciliations/:id', auth.requireAuth, cashReconciliationsController.get);
-router.post('/cash-reconciliations/open', auth.requireAuth, cashReconciliationsController.open);
-router.put('/cash-reconciliations/open', auth.requireAuth, cashReconciliationsController.upsertOpen);
-router.get('/cash-reconciliations/:id/preview', auth.requireAuth, cashReconciliationsController.previewClose);
-router.post('/cash-reconciliations/:id/close', auth.requireAuth, cashReconciliationsController.close);
-router.delete('/cash-reconciliations/:id', auth.requireAuth, cashReconciliationsController.remove);
+router.get('/cash-reconciliations', cashReconciliationsController.list);
+router.get('/cash-reconciliations/:id', cashReconciliationsController.get);
+router.post('/cash-reconciliations/open', cashReconciliationsController.open);
+router.put('/cash-reconciliations/open', cashReconciliationsController.upsertOpen);
+router.get('/cash-reconciliations/:id/preview', cashReconciliationsController.previewClose);
+router.post('/cash-reconciliations/:id/close', cashReconciliationsController.close);
+router.delete('/cash-reconciliations/:id', cashReconciliationsController.remove);
 
 // Bank deposits (admin only)
-router.get('/bank-deposits', auth.requireAuth, bankDepositsController.list);
-router.get('/bank-deposits/:id', auth.requireAuth, bankDepositsController.get);
-router.post('/bank-deposits', auth.requireAuth, bankDepositsController.create);
-router.post('/bank-deposits/:id/reverse', auth.requireAuth, bankDepositsController.reverse);
-router.delete('/bank-deposits/:id', auth.requireAuth, bankDepositsController.remove);
+router.get('/bank-deposits', requireAdmin, bankDepositsController.list);
+router.get('/bank-deposits/:id', requireAdmin, bankDepositsController.get);
+router.post('/bank-deposits', requireAdmin, bankDepositsController.create);
+router.post('/bank-deposits/:id/reverse', requireAdmin, bankDepositsController.reverse);
+router.delete('/bank-deposits/:id', requireAdmin, bankDepositsController.remove);
 
 module.exports = router;

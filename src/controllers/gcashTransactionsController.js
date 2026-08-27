@@ -1,13 +1,6 @@
 const service = require('../services/gcashTransactionService');
 
-function assertAdmin(req, res) {
-  if (!req.user || req.user.role !== 'admin') {
-    res.status(403).json({ ok: false, error: 'admin access required' });
-    return false;
-  }
-  return true;
-}
-
+// Admin gating for the destructive route lives in routes/api.js.
 async function list(req, res) {
   try {
     const items = await service.list({
@@ -45,8 +38,6 @@ async function create(req, res) {
 
 async function remove(req, res) {
   try {
-    if (!assertAdmin(req, res)) return;
-
     const removed = await service.remove(req.params.id);
     if (!removed) {
       return res.status(404).json({ ok: false, error: 'gcash transaction not found' });

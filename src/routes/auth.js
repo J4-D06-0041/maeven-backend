@@ -2,8 +2,14 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const usersModel = require('../models/users');
 const jwt = require('jsonwebtoken');
+const { jwtSecret, jwtExpiresIn } = require('../config');
 
 const router = express.Router();
+
+// A bcrypt hash of a value nobody can supply. Compared against when no user
+// matched, so a request for an unknown account costs the same time as one for a
+// known account -- otherwise the response latency alone enumerates accounts.
+const DUMMY_HASH = bcrypt.hashSync('unmatchable-placeholder-password', 10);
 
 // POST /login
 // Accepts { phone?, email?, password }
@@ -18,17 +24,17 @@ router.post('/login', async (req, res) => {
     if (phone) user = await usersModel.findByPhone(phone);
     if (!user && email) user = await usersModel.findByEmail(email);
 
-    if (!user) return res.status(404).json({ ok: false, error: 'user not found' });
-    if (user.is_active === false) return res.status(403).json({ ok: false, error: 'user is inactive' });
-
-    const hash = user.password_hash || '';
-    const match = await bcrypt.compare(password, hash);
-    if (!match) return res.status(401).json({ ok: false, error: 'invalid credentials' });
+    // Every failure below returns the same 401. Distinguishing "no such user"
+    // (404) from "inactive" (403) from "wrong password" (401) told an anonymous
+    // caller which phone numbers and emails have accounts, and which of those
+    // are live -- free account enumeration against a public endpoint.
+    const match = await bcrypt.compare(password, (user && user.password_hash) || DUMMY_HASH);
+    if (!user || user.is_active === false || !match) {
+      return res.status(401).json({ ok: false, error: 'invalid credentials' });
+    }
 
     const { password_hash, ...safeUser } = user;
-    // Build JWT token (include id and role). Provide a fallback secret for dev.
-    const jwtSecret = process.env.JWT_SECRET || 'please-change-this-secret';
-    const token = jwt.sign({ id: user.id, role: user.role }, jwtSecret, { expiresIn: '8h' });
+    const token = jwt.sign({ id: user.id, role: user.role }, jwtSecret, { expiresIn: jwtExpiresIn });
 
     // Normalize user object expected by clients
     const userPayload = {
