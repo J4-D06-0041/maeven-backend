@@ -1,5 +1,25 @@
 const { pool } = require('../db');
 
+// This script mirrors the production schema (`maeven_collections`) as audited
+// on 2026-08-27. It is not a statement of intent -- it is a description of what
+// is actually deployed, so that a database built from scratch (disaster
+// recovery, a staging clone) matches production rather than diverging from it.
+//
+// Production was not originally built by this file, and the two had drifted
+// across 79 columns: the core tables (orders, users, products, customers...)
+// store enum-like values as VARCHAR and timestamps as TIMESTAMP without a time
+// zone, and their VARCHAR lengths and NOT NULL constraints are tighter than
+// this script used to claim. Those definitions now match.
+//
+// Two consequences worth knowing about, both inherited from production rather
+// than chosen here:
+//   - The enum types below are still created, and the newer tables (GCash,
+//     prepaid load, bank deposits) do use them. The core tables do not, so
+//     values in columns like orders.order_status are validated only by the
+//     application, never by the database.
+//   - Timestamps on the core tables have no time zone. See SCHEMA-DRIFT.md at
+//     the project root for the full audit and what it would take to change
+//     either of these.
 async function createSchema() {
   const client = await pool.connect();
   try {
@@ -55,134 +75,134 @@ async function createSchema() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS branches (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        branch_name VARCHAR(255) NOT NULL,
-        address TEXT,
-        phone VARCHAR(50),
+        branch_name VARCHAR(150) NOT NULL,
+        address TEXT NOT NULL,
+        phone VARCHAR(30),
         is_main BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        created_at TIMESTAMP DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS sales_channels (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        channel_name VARCHAR(255) NOT NULL UNIQUE
+        channel_name VARCHAR(50) NOT NULL UNIQUE
       );
 
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        full_name VARCHAR(255),
-        phone VARCHAR(100) UNIQUE,
-        email VARCHAR(255),
-        password_hash TEXT,
-        role user_role NOT NULL DEFAULT 'staff',
+        full_name VARCHAR(150) NOT NULL,
+        phone VARCHAR(30) UNIQUE,
+        email VARCHAR(150),
+        password_hash TEXT NOT NULL,
+        role VARCHAR(30) NOT NULL DEFAULT 'staff',
         branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
         is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        created_at TIMESTAMP DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS customers (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        full_name VARCHAR(255) NOT NULL,
-        phone VARCHAR(100) UNIQUE,
-        email VARCHAR(255),
+        full_name VARCHAR(150) NOT NULL,
+        phone VARCHAR(30) UNIQUE,
+        email VARCHAR(150),
         address TEXT,
-        customer_type customer_type DEFAULT 'walk-in',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        customer_type VARCHAR(30) NOT NULL DEFAULT 'walk-in',
+        created_at TIMESTAMP DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS suppliers (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        supplier_name VARCHAR(255),
-        phone VARCHAR(100),
-        email VARCHAR(255),
-        address TEXT,
-        supplier_type supplier_type DEFAULT 'physical',
+        supplier_name VARCHAR(150) NOT NULL,
+        phone VARCHAR(30),
+        email VARCHAR(150),
+        address TEXT NOT NULL,
+        supplier_type VARCHAR(30) NOT NULL DEFAULT 'physical',
         notes TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        created_at TIMESTAMP DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS categories (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        category_name VARCHAR(255),
+        category_name VARCHAR(100) NOT NULL,
         parent_id UUID REFERENCES categories(id) ON DELETE SET NULL
       );
 
       CREATE TABLE IF NOT EXISTS products (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        product_name VARCHAR(255),
+        product_name VARCHAR(150) NOT NULL,
         description TEXT,
         photo_url TEXT,
         category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
-        brand VARCHAR(255),
-        status product_status DEFAULT 'active',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        brand VARCHAR(100),
+        status VARCHAR(30) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS product_variants (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        product_id UUID REFERENCES products(id) ON DELETE CASCADE,
-        sku VARCHAR(255) UNIQUE,
-        class VARCHAR(100),
-        product_type VARCHAR(100),
-        brand VARCHAR(255),
+        product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+        sku VARCHAR(100) NOT NULL UNIQUE,
+        class VARCHAR(50),
+        product_type VARCHAR(50),
+        brand VARCHAR(100),
         photo_url TEXT,
-        size VARCHAR(100),
-        color VARCHAR(100),
-        price NUMERIC(12,2) DEFAULT 0,
+        size VARCHAR(50),
+        color VARCHAR(50),
+        price NUMERIC(12,2) NOT NULL DEFAULT 0,
         cost_price NUMERIC(12,2) DEFAULT 0,
         is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        created_at TIMESTAMP DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS inventories (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        branch_id UUID REFERENCES branches(id) ON DELETE CASCADE,
-        product_variant_id UUID REFERENCES product_variants(id) ON DELETE CASCADE,
-        quantity_on_hand INTEGER DEFAULT 0,
+        branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+        product_variant_id UUID NOT NULL REFERENCES product_variants(id) ON DELETE CASCADE,
+        quantity_on_hand INTEGER NOT NULL DEFAULT 0,
         reorder_level INTEGER DEFAULT 0,
         UNIQUE(branch_id, product_variant_id)
       );
 
       CREATE TABLE IF NOT EXISTS inventory_movements (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
-        product_variant_id UUID REFERENCES product_variants(id) ON DELETE SET NULL,
-        movement_type inventory_movement_type NOT NULL,
+        branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE SET NULL,
+        product_variant_id UUID NOT NULL REFERENCES product_variants(id) ON DELETE SET NULL,
+        movement_type VARCHAR(30) NOT NULL,
         quantity INTEGER NOT NULL,
-        reference_type VARCHAR(255),
+        reference_type VARCHAR(50),
         reference_id UUID,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        created_at TIMESTAMP DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS orders (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        order_number VARCHAR(255) UNIQUE,
-        customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
-        branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
-        sales_channel_id UUID REFERENCES sales_channels(id) ON DELETE SET NULL,
-        order_status order_status DEFAULT 'pending',
-        total_amount NUMERIC(12,2) DEFAULT 0,
+        order_number VARCHAR(50) NOT NULL UNIQUE,
+        customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE SET NULL,
+        branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE SET NULL,
+        sales_channel_id UUID NOT NULL REFERENCES sales_channels(id) ON DELETE SET NULL,
+        order_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+        total_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
         discount_percentage NUMERIC(5,2) DEFAULT 0,
         discount_amount NUMERIC(12,2) DEFAULT 0,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        created_at TIMESTAMP DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS order_items (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-        product_variant_id UUID REFERENCES product_variants(id) ON DELETE SET NULL,
+        order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        product_variant_id UUID NOT NULL REFERENCES product_variants(id) ON DELETE SET NULL,
         quantity INTEGER NOT NULL DEFAULT 1,
-        unit_price NUMERIC(12,2) DEFAULT 0,
-        subtotal NUMERIC(12,2) DEFAULT 0,
+        unit_price NUMERIC(12,2) NOT NULL DEFAULT 0,
+        subtotal NUMERIC(12,2) NOT NULL DEFAULT 0,
         item_code VARCHAR(255)
       );
 
       CREATE TABLE IF NOT EXISTS payments (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-        payment_method payment_method NOT NULL,
+        order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        payment_method VARCHAR(30) NOT NULL,
         amount NUMERIC(12,2) NOT NULL,
         received_by UUID REFERENCES users(id) ON DELETE SET NULL,
-        payment_date TIMESTAMP WITH TIME ZONE DEFAULT now()
+        payment_date TIMESTAMP DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS gcash_fee_rules (
@@ -263,17 +283,17 @@ async function createSchema() {
 
       CREATE TABLE IF NOT EXISTS returns (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-        branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
+        order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE SET NULL,
         reason TEXT,
-        return_status return_status DEFAULT 'pending',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        return_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS return_items (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        return_id UUID REFERENCES returns(id) ON DELETE CASCADE,
-        product_variant_id UUID REFERENCES product_variants(id) ON DELETE SET NULL,
+        return_id UUID NOT NULL REFERENCES returns(id) ON DELETE CASCADE,
+        product_variant_id UUID NOT NULL REFERENCES product_variants(id) ON DELETE SET NULL,
         quantity INTEGER NOT NULL DEFAULT 1
       );
 
@@ -292,30 +312,30 @@ async function createSchema() {
 
       CREATE TABLE IF NOT EXISTS purchase_order_items (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        purchase_order_id UUID REFERENCES purchase_orders(id) ON DELETE CASCADE,
-        product_variant_id UUID REFERENCES product_variants(id) ON DELETE SET NULL,
+        purchase_order_id UUID NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+        product_variant_id UUID NOT NULL REFERENCES product_variants(id) ON DELETE SET NULL,
         quantity INTEGER NOT NULL DEFAULT 1,
-        cost_price NUMERIC(12,2) DEFAULT 0
+        cost_price NUMERIC(12,2) NOT NULL DEFAULT 0
       );
 
       CREATE TABLE IF NOT EXISTS purchase_order_estimates (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        purchase_order_id UUID REFERENCES purchase_orders(id) ON DELETE CASCADE,
-        product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+        id UUID NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+        purchase_order_id UUID NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+        product_id UUID NOT NULL REFERENCES products(id) ON DELETE SET NULL,
         estimated_quantity INTEGER NOT NULL CHECK (estimated_quantity > 0),
         estimated_total_cost NUMERIC(12,2) NOT NULL CHECK (estimated_total_cost >= 0),
         notes TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        created_at TIMESTAMP NOT NULL DEFAULT now(),
+        updated_at TIMESTAMP NOT NULL DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS expenses (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
-        expense_type VARCHAR(255),
+        branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE SET NULL,
+        expense_type VARCHAR(50) NOT NULL,
         description TEXT,
-        amount NUMERIC(12,2) DEFAULT 0,
-        expense_date DATE
+        amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+        expense_date DATE NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS cash_reconciliations (
@@ -328,9 +348,9 @@ async function createSchema() {
         closing_cash_total NUMERIC(12,2) NOT NULL DEFAULT 0,
         total_sales_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
         cash_sales_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
-        other_cash_impact_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
-        gcash_cash_in_total NUMERIC(12,2) NOT NULL DEFAULT 0,
-        gcash_cash_out_total NUMERIC(12,2) NOT NULL DEFAULT 0,
+        other_cash_impact_amount NUMERIC(12,2) DEFAULT 0,
+        gcash_cash_in_total NUMERIC(12,2) DEFAULT 0,
+        gcash_cash_out_total NUMERIC(12,2) DEFAULT 0,
         total_expenses_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
         expected_cash_on_hand NUMERIC(12,2) NOT NULL DEFAULT 0,
         actual_cash_on_hand NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -416,7 +436,7 @@ async function createSchema() {
       FOREIGN KEY (product_variant_id)
       REFERENCES product_variants(id)
       ON DELETE SET NULL;
-    `);
+    ;`);
 
     // add GCash tables/columns/indexes for existing DBs where table may already exist without latest columns
     await client.query(`ALTER TABLE gcash_fee_rules ADD COLUMN IF NOT EXISTS service_type gcash_service_type;`);
