@@ -1,4 +1,7 @@
 const { pool } = require('../db');
+const { dayRange } = require('../utils/businessDay');
+
+const day = (column, opts) => dayRange(column, '$2', '$2', opts);
 
 function toMoney(value) {
   const n = Number(value || 0);
@@ -6,15 +9,24 @@ function toMoney(value) {
   return Number(n.toFixed(2));
 }
 
+// For a closed day prepaid_load_total is derived from the figures frozen at
+// close (net other impact = cash-in - cash-out + prepaid), so later edits to
+// prepaid rows cannot break the closed record's audit identity. Open days read
+// live.
 const RECONCILIATION_SELECT = `
   cr.*,
-  COALESCE((
-    SELECT SUM(pt.gross_amount)
-    FROM prepaid_load_transactions pt
-    WHERE pt.branch_id = cr.branch_id
-      AND pt.created_at >= cr.business_date::date
-      AND pt.created_at < (cr.business_date::date + INTERVAL '1 day')
-  ), 0) AS prepaid_load_total,
+  CASE
+    WHEN cr.closed_at IS NOT NULL THEN
+      COALESCE(cr.other_cash_impact_amount, 0)
+        - COALESCE(cr.gcash_cash_in_total, 0)
+        + COALESCE(cr.gcash_cash_out_total, 0)
+    ELSE COALESCE((
+      SELECT SUM(pt.gross_amount)
+      FROM prepaid_load_transactions pt
+      WHERE pt.branch_id = cr.branch_id
+        AND ${dayRange('pt.created_at', 'cr.business_date', 'cr.business_date')}
+    ), 0)
+  END AS prepaid_load_total,
   COALESCE((
     SELECT SUM(bd.amount)
     FROM bank_deposits bd
@@ -49,22 +61,19 @@ async function getSalesTotals(client, { branch_id, business_date }) {
         FROM orders o
         WHERE o.order_status NOT IN ('cancelled')
           AND o.branch_id = $1
-          AND o.created_at >= $2::date
-          AND o.created_at < ($2::date + INTERVAL '1 day')
+          AND ${day('o.created_at', { naive: true })}
       ), 0)
       + COALESCE((
         SELECT SUM(gt.gross_amount)
         FROM gcash_transactions gt
         WHERE gt.branch_id = $1
-          AND gt.created_at >= $2::date
-          AND gt.created_at < ($2::date + INTERVAL '1 day')
+          AND ${day('gt.created_at')}
       ), 0)
       + COALESCE((
         SELECT SUM(pt.gross_amount)
         FROM prepaid_load_transactions pt
         WHERE pt.branch_id = $1
-          AND pt.created_at >= $2::date
-          AND pt.created_at < ($2::date + INTERVAL '1 day')
+          AND ${day('pt.created_at')}
       ), 0)
     ) AS total_sales_amount
   `;
@@ -85,8 +94,7 @@ async function getSalesTotals(client, { branch_id, business_date }) {
     WHERE p.payment_method = 'cash'
       AND o.order_status NOT IN ('cancelled')
       AND o.branch_id = $1
-      AND p.payment_date >= $2::date
-      AND p.payment_date < ($2::date + INTERVAL '1 day')
+      AND ${day('p.payment_date', { naive: true })}
   `;
 
   const otherCashImpactSql = `
@@ -100,16 +108,14 @@ async function getSalesTotals(client, { branch_id, business_date }) {
         END AS cash_impact
       FROM gcash_transactions gt
       WHERE gt.branch_id = $1
-        AND gt.created_at >= $2::date
-        AND gt.created_at < ($2::date + INTERVAL '1 day')
+        AND ${day('gt.created_at')}
 
       UNION ALL
 
       SELECT pt.cash_impact
       FROM prepaid_load_transactions pt
       WHERE pt.branch_id = $1
-        AND pt.created_at >= $2::date
-        AND pt.created_at < ($2::date + INTERVAL '1 day')
+        AND ${day('pt.created_at')}
     ) x
   `;
 
@@ -119,16 +125,14 @@ async function getSalesTotals(client, { branch_id, business_date }) {
       COALESCE(SUM(CASE WHEN gt.service_type = 'cash_out' THEN ABS(COALESCE(gt.principal_amount, gt.cash_impact, 0)) ELSE 0 END), 0) AS gcash_cash_out_total
     FROM gcash_transactions gt
     WHERE gt.branch_id = $1
-      AND gt.created_at >= $2::date
-      AND gt.created_at < ($2::date + INTERVAL '1 day')
+      AND ${day('gt.created_at')}
   `;
 
   const prepaidTotalSql = `
     SELECT COALESCE(SUM(pt.gross_amount), 0) AS prepaid_load_total
     FROM prepaid_load_transactions pt
     WHERE pt.branch_id = $1
-      AND pt.created_at >= $2::date
-      AND pt.created_at < ($2::date + INTERVAL '1 day')
+      AND ${day('pt.created_at')}
   `;
 
   const [

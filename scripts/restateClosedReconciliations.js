@@ -29,6 +29,10 @@ function toMoney(n) {
 }
 
 
+// Describe why this run is restating, e.g.
+//   RESTATE_CAUSE="POS saved cash tendered instead of the sale amount; day boundaries moved to Manila time."
+const CAUSE = process.env.RESTATE_CAUSE || 'recomputed with the current reconciliation rules.';
+
 async function run() {
   const apply = process.argv.includes('--apply');
 
@@ -69,10 +73,8 @@ async function run() {
     if (apply) {
       const restatementNote =
         `[Restated ${restatedOn}] Original: expected ${oldExpected}, actual ${actual}, ` +
-        `variance ${oldVariance}, is_short=${row.is_short}. Cause: GCash transactions were ` +
-        `excluded from this calculation because gcash_transactions.branch_id was NULL ` +
-        `(fixed 2026-08-15); cash expenses were not previously subtracted from expected ` +
-        `cash on hand. Actual counted cash (${actual}) is unchanged -- only the expected ` +
+        `variance ${oldVariance}, is_short=${row.is_short}. Cause: ${CAUSE} ` +
+        `Actual counted cash (${actual}) is unchanged -- only the expected ` +
         `figure and its derived variance were recomputed.`;
       const combinedNotes = row.notes ? `${row.notes}\n\n${restatementNote}` : restatementNote;
 

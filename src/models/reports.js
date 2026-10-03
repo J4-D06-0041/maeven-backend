@@ -1,4 +1,5 @@
 const { pool } = require('../db');
+const { dayRange } = require('../utils/businessDay');
 
 /**
  * Resolve the DATE_TRUNC truncation unit and default date range for each period.
@@ -61,8 +62,7 @@ async function getSalesSummary({ period = 'daily', from, to, branch_id, sales_ch
   const params = [fromDate, toDate];
   const whereParts = [
     `o.order_status NOT IN ('cancelled')`,
-    `o.created_at >= $1::date`,
-    `o.created_at < ($2::date + INTERVAL '1 day')`,
+    `${dayRange('o.created_at', '$1', '$2', { naive: true })}`,
   ];
 
   if (branch_id) {
@@ -114,8 +114,7 @@ async function getSalesSummary({ period = 'daily', from, to, branch_id, sales_ch
         COALESCE(SUM(pt.gross_amount), 0) AS net_sales,
         COUNT(pt.id) AS items_sold
       FROM prepaid_load_transactions pt
-      WHERE pt.created_at >= $1::date
-        AND pt.created_at < ($2::date + INTERVAL '1 day')
+      WHERE ${dayRange('pt.created_at', '$1', '$2')}
         ${prepaidBranchFilter}
         AND $${includeServicesParam}::boolean = TRUE
       GROUP BY 1
@@ -129,8 +128,7 @@ async function getSalesSummary({ period = 'daily', from, to, branch_id, sales_ch
         COALESCE(SUM(gt.gross_amount), 0) AS net_sales,
         COUNT(gt.id) AS items_sold
       FROM gcash_transactions gt
-      WHERE gt.created_at >= $1::date
-        AND gt.created_at < ($2::date + INTERVAL '1 day')
+      WHERE ${dayRange('gt.created_at', '$1', '$2')}
         ${gcashBranchFilter}
         AND $${includeServicesParam}::boolean = TRUE
       GROUP BY 1
@@ -170,17 +168,14 @@ async function getPaymentBreakdown({ from, to, branch_id } = {}) {
 
   const params = [fromDate, toDate];
   const whereParts = [
-    `p.payment_date >= $1::date`,
-    `p.payment_date < ($2::date + INTERVAL '1 day')`,
+    `${dayRange('p.payment_date', '$1', '$2', { naive: true })}`,
     `o.order_status NOT IN ('cancelled')`,
   ];
   const prepaidWhereParts = [
-    `pt.created_at >= $1::date`,
-    `pt.created_at < ($2::date + INTERVAL '1 day')`,
+    `${dayRange('pt.created_at', '$1', '$2')}`,
   ];
   const gcashWhereParts = [
-    `gt.created_at >= $1::date`,
-    `gt.created_at < ($2::date + INTERVAL '1 day')`,
+    `${dayRange('gt.created_at', '$1', '$2')}`,
   ];
 
   if (branch_id) {
@@ -252,12 +247,10 @@ async function getTopProducts({ from, to, branch_id, limit = 10 } = {}) {
   const params = [fromDate, toDate];
   const whereParts = [
     `o.order_status NOT IN ('cancelled')`,
-    `o.created_at >= $1::date`,
-    `o.created_at < ($2::date + INTERVAL '1 day')`,
+    `${dayRange('o.created_at', '$1', '$2', { naive: true })}`,
   ];
   const prepaidWhereParts = [
-    `pt.created_at >= $1::date`,
-    `pt.created_at < ($2::date + INTERVAL '1 day')`,
+    `${dayRange('pt.created_at', '$1', '$2')}`,
   ];
 
   if (branch_id) {
@@ -339,8 +332,7 @@ async function getOverviewSummary({ from, to, branch_id, sales_channel_id } = {}
   const params = [fromDate, toDate];
   const whereParts = [
     `o.order_status NOT IN ('cancelled')`,
-    `o.created_at >= $1::date`,
-    `o.created_at < ($2::date + INTERVAL '1 day')`,
+    `${dayRange('o.created_at', '$1', '$2', { naive: true })}`,
   ];
 
   if (branch_id) {
@@ -389,8 +381,7 @@ async function getOverviewSummary({ from, to, branch_id, sales_channel_id } = {}
         COALESCE(SUM(pt.gross_amount), 0) AS net_sales,
         COUNT(pt.id) AS items_sold
       FROM prepaid_load_transactions pt
-      WHERE pt.created_at >= $1::date
-        AND pt.created_at < ($2::date + INTERVAL '1 day')
+      WHERE ${dayRange('pt.created_at', '$1', '$2')}
         ${prepaidBranchFilter}
         AND $${includeServicesParam}::boolean = TRUE
     ),
@@ -402,8 +393,7 @@ async function getOverviewSummary({ from, to, branch_id, sales_channel_id } = {}
         COALESCE(SUM(gt.gross_amount), 0) AS net_sales,
         COUNT(gt.id) AS items_sold
       FROM gcash_transactions gt
-      WHERE gt.created_at >= $1::date
-        AND gt.created_at < ($2::date + INTERVAL '1 day')
+      WHERE ${dayRange('gt.created_at', '$1', '$2')}
         ${gcashBranchFilter}
         AND $${includeServicesParam}::boolean = TRUE
     )
@@ -448,8 +438,7 @@ async function getDailyCashReconciliation({ branch_id, business_date } = {}) {
         SELECT SUM(pt.gross_amount)
         FROM prepaid_load_transactions pt
         WHERE pt.branch_id = cr.branch_id
-          AND pt.created_at >= cr.business_date::date
-          AND pt.created_at < (cr.business_date::date + INTERVAL '1 day')
+          AND ${dayRange('pt.created_at', 'cr.business_date', 'cr.business_date')}
       ), 0) AS prepaid_load_total,
       COALESCE((
         SELECT SUM(bd.amount)
@@ -521,8 +510,7 @@ async function getProfitability({ from, to, branch_id, sales_channel_id } = {}) 
   const params = [fromDate, toDate];
   const whereParts = [
     `o.order_status NOT IN ('cancelled')`,
-    `o.created_at >= $1::date`,
-    `o.created_at < ($2::date + INTERVAL '1 day')`,
+    `${dayRange('o.created_at', '$1', '$2', { naive: true })}`,
   ];
 
   if (branch_id) {
@@ -590,8 +578,7 @@ async function getProfitability({ from, to, branch_id, sales_channel_id } = {}) 
       FROM gcash_transactions gt
       LEFT JOIN branches b ON b.id = gt.branch_id
       LEFT JOIN customers c ON c.id = gt.customer_id
-      WHERE gt.created_at >= $1::date
-        AND gt.created_at < ($2::date + INTERVAL '1 day')
+      WHERE ${dayRange('gt.created_at', '$1', '$2')}
         ${gcashBranchFilter}
         AND $${includeServicesParam}::boolean = TRUE
 
@@ -615,8 +602,7 @@ async function getProfitability({ from, to, branch_id, sales_channel_id } = {}) 
       LEFT JOIN prepaid_load_products plp ON plp.id = pt.product_id
       LEFT JOIN branches b ON b.id = pt.branch_id
       LEFT JOIN customers c ON c.id = pt.customer_id
-      WHERE pt.created_at >= $1::date
-        AND pt.created_at < ($2::date + INTERVAL '1 day')
+      WHERE ${dayRange('pt.created_at', '$1', '$2')}
         ${prepaidBranchFilter}
         AND $${includeServicesParam}::boolean = TRUE
     ) x

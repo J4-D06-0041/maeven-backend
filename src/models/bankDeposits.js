@@ -1,4 +1,5 @@
 const { pool } = require('../db');
+const { businessDate } = require('../utils/businessDay');
 
 function toMoney(value) {
   const n = Number(value || 0);
@@ -10,7 +11,7 @@ function resolveBusinessDate(value) {
   if (value && /^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
     return String(value);
   }
-  return new Date().toISOString().slice(0, 10);
+  return businessDate();
 }
 
 function requireText(value, fieldName) {
