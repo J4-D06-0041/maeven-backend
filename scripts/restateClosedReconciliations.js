@@ -20,6 +20,8 @@
  * Usage:
  *   node scripts/restateClosedReconciliations.js            # dry run (default, no writes)
  *   node scripts/restateClosedReconciliations.js --apply     # actually write
+ *   node scripts/restateClosedReconciliations.js --skip=2026-09-08,2026-09-09
+ *                                                            # leave these dates untouched
  */
 const { pool } = require('../src/db');
 const cashReconciliationsModel = require('../src/models/cashReconciliations');
@@ -35,6 +37,8 @@ const CAUSE = process.env.RESTATE_CAUSE || 'recomputed with the current reconcil
 
 async function run() {
   const apply = process.argv.includes('--apply');
+  const skipArg = process.argv.find((a) => a.startsWith('--skip='));
+  const skipDates = new Set(skipArg ? skipArg.slice('--skip='.length).split(',').map((d) => d.trim()) : []);
 
   // business_date is cast to text in the query itself -- letting node-postgres
   // parse a DATE column into a JS Date and then calling toISOString() shifts
@@ -52,6 +56,11 @@ async function run() {
   const restatedOn = new Date().toISOString().slice(0, 10);
 
   for (const row of rows) {
+    if (skipDates.has(row.business_date)) {
+      console.log(`${row.business_date}: skipped (--skip)`);
+      continue;
+    }
+
     const totals = await cashReconciliationsModel.previewClose(row.id);
     const newExpected = toMoney(totals.expected_cash_on_hand);
     const oldExpected = toMoney(row.expected_cash_on_hand);
