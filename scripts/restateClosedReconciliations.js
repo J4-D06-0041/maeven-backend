@@ -20,6 +20,8 @@
  * Usage:
  *   node scripts/restateClosedReconciliations.js            # dry run (default, no writes)
  *   node scripts/restateClosedReconciliations.js --apply     # actually write
+ *   node scripts/restateClosedReconciliations.js --skip=2026-09-08,2026-09-09
+ *                                                            # leave these dates untouched
  */
 const { pool } = require('../src/db');
 const cashReconciliationsModel = require('../src/models/cashReconciliations');
@@ -29,8 +31,14 @@ function toMoney(n) {
 }
 
 
+// Describe why this run is restating, e.g.
+//   RESTATE_CAUSE="POS saved cash tendered instead of the sale amount; day boundaries moved to Manila time."
+const CAUSE = process.env.RESTATE_CAUSE || 'recomputed with the current reconciliation rules.';
+
 async function run() {
   const apply = process.argv.includes('--apply');
+  const skipArg = process.argv.find((a) => a.startsWith('--skip='));
+  const skipDates = new Set(skipArg ? skipArg.slice('--skip='.length).split(',').map((d) => d.trim()) : []);
 
   // business_date is cast to text in the query itself -- letting node-postgres
   // parse a DATE column into a JS Date and then calling toISOString() shifts
@@ -48,6 +56,11 @@ async function run() {
   const restatedOn = new Date().toISOString().slice(0, 10);
 
   for (const row of rows) {
+    if (skipDates.has(row.business_date)) {
+      console.log(`${row.business_date}: skipped (--skip)`);
+      continue;
+    }
+
     const totals = await cashReconciliationsModel.previewClose(row.id);
     const newExpected = toMoney(totals.expected_cash_on_hand);
     const oldExpected = toMoney(row.expected_cash_on_hand);
@@ -69,10 +82,8 @@ async function run() {
     if (apply) {
       const restatementNote =
         `[Restated ${restatedOn}] Original: expected ${oldExpected}, actual ${actual}, ` +
-        `variance ${oldVariance}, is_short=${row.is_short}. Cause: GCash transactions were ` +
-        `excluded from this calculation because gcash_transactions.branch_id was NULL ` +
-        `(fixed 2026-08-15); cash expenses were not previously subtracted from expected ` +
-        `cash on hand. Actual counted cash (${actual}) is unchanged -- only the expected ` +
+        `variance ${oldVariance}, is_short=${row.is_short}. Cause: ${CAUSE} ` +
+        `Actual counted cash (${actual}) is unchanged -- only the expected ` +
         `figure and its derived variance were recomputed.`;
       const combinedNotes = row.notes ? `${row.notes}\n\n${restatementNote}` : restatementNote;
 

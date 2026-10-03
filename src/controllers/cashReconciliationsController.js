@@ -1,3 +1,4 @@
+const { businessDate } = require('../utils/businessDay');
 const cashReconciliationsModel = require('../models/cashReconciliations');
 const { buildAuditSummary } = require('../services/cashSummary');
 
@@ -5,7 +6,7 @@ const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
 function normalizeDate(input) {
   if (!input) {
-    return new Date().toISOString().slice(0, 10);
+    return businessDate();
   }
   return String(input);
 }
