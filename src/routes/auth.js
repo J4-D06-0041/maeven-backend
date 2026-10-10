@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const usersModel = require('../models/users');
 const jwt = require('jsonwebtoken');
 const { jwtSecret, jwtExpiresIn } = require('../config');
+const auth = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -41,11 +42,39 @@ router.post('/login', async (req, res) => {
       id: user.id,
       name: user.full_name || user.fullName || null,
       phone: user.phone || null,
-      role: user.role || null
+      role: user.role || null,
+      // The POS and the cash pages preselect (or, for non-admins, pin) this
+      // branch. Without it here the client's `user.branch_id` is always empty.
+      branch_id: user.branch_id || null
     };
 
     // Return original data plus the token and normalized user object
     return res.json({ ok: true, data: safeUser, token, user: userPayload });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET /me
+// The signed-in user's current profile. Clients cache the login payload, so
+// without this a branch reassignment (or a session that predates branch_id in
+// that payload) would not reach the POS until the next sign-in.
+router.get('/me', auth, auth.requireAuth, async (req, res) => {
+  try {
+    const user = await usersModel.findById(req.user.id);
+    if (!user || user.is_active === false) {
+      return res.status(401).json({ ok: false, error: 'authentication required' });
+    }
+    return res.json({
+      ok: true,
+      user: {
+        id: user.id,
+        name: user.full_name || null,
+        phone: user.phone || null,
+        role: user.role || null,
+        branch_id: user.branch_id || null
+      }
+    });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }
