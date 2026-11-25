@@ -1,5 +1,6 @@
 const { pool } = require('../db');
 const { dayRange } = require('../utils/businessDay');
+const { DEPOSIT_COLUMNS } = require('../services/bankDepositTiming');
 
 /**
  * Resolve the DATE_TRUNC truncation unit and default date range for each period.
@@ -440,27 +441,10 @@ async function getDailyCashReconciliation({ branch_id, business_date } = {}) {
         WHERE pt.branch_id = cr.branch_id
           AND ${dayRange('pt.created_at', 'cr.business_date', 'cr.business_date')}
       ), 0) AS prepaid_load_total,
-      COALESCE((
-        SELECT SUM(bd.amount)
-        FROM bank_deposits bd
-        WHERE bd.branch_id = cr.branch_id
-          AND bd.business_date = cr.business_date
-      ), 0) AS total_bank_deposit_amount,
+      ${DEPOSIT_COLUMNS},
       cr.expected_cash_on_hand,
       cr.closing_cash_breakdown,
       cr.actual_cash_on_hand,
-      CASE
-        WHEN cr.closed_at IS NULL THEN NULL
-        ELSE GREATEST(
-          COALESCE(cr.actual_cash_on_hand, 0) - COALESCE((
-            SELECT SUM(bd.amount)
-            FROM bank_deposits bd
-            WHERE bd.branch_id = cr.branch_id
-              AND bd.business_date = cr.business_date
-          ), 0),
-          0
-        )
-      END AS remaining_cash_on_register,
       cr.variance_amount,
       cr.is_short,
       cr.opened_by,

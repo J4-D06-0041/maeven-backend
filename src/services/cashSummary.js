@@ -15,10 +15,12 @@ function toMoney(value) {
  *   in  - cash sales, GCash cash-in (gross: principal + fee both arrive as cash),
  *         prepaid load (gross: face value + markup)
  *   out - GCash cash-out (principal only; the fee is received as e-money,
- *         not taken from the register), cash expenses
+ *         not taken from the register), cash expenses, and bank deposits
+ *         recorded before the day was closed (that cash left the drawer
+ *         before the count)
  *
- * Bank deposits are NOT an outflow here. They are made after the closing count,
- * so they reduce remaining_cash_on_register instead and are reported separately.
+ * Bank deposits recorded AFTER close are not an outflow: they come out of the
+ * counted cash, so they reduce remaining_cash_on_register instead.
  */
 function buildAuditSummary(data = {}) {
   const openingCash = toMoney(data.opening_cash_total);
@@ -28,10 +30,12 @@ function buildAuditSummary(data = {}) {
   const prepaidLoadTotal = toMoney(data.prepaid_load_total);
   const totalExpenses = toMoney(data.total_expenses_amount);
   const bankDeposits = toMoney(data.total_bank_deposit_amount);
+  const depositsBeforeClose = toMoney(data.bank_deposits_before_close_amount);
+  const depositsAfterClose = toMoney(data.bank_deposits_after_close_amount);
   const otherNet = toMoney(data.other_cash_impact_amount);
 
   const totalCashInflows = toMoney(cashSales + cashIn + prepaidLoadTotal);
-  const totalCashOutflows = toMoney(cashOut + totalExpenses);
+  const totalCashOutflows = toMoney(cashOut + totalExpenses + depositsBeforeClose);
 
   return {
     opening_cash_total: openingCash,
@@ -41,6 +45,8 @@ function buildAuditSummary(data = {}) {
     prepaid_load_total: prepaidLoadTotal,
     total_expenses_amount: totalExpenses,
     total_bank_deposit_amount: bankDeposits,
+    bank_deposits_before_close_amount: depositsBeforeClose,
+    bank_deposits_after_close_amount: depositsAfterClose,
     net_other_cash_impact_amount: otherNet,
     total_cash_inflows: totalCashInflows,
     total_cash_outflows: totalCashOutflows,

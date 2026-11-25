@@ -86,6 +86,7 @@ expected = opening cash
                                        - GCash cash-out principal
                                        + prepaid load gross)
          - cash expenses
+         - bank deposits recorded before close
 
 variance = actual counted cash - expected
 is_short = variance < 0
@@ -96,19 +97,42 @@ table has no payment-method column, so there is no way to tell a cash expense
 from one paid by bank transfer. If that distinction ever matters, add
 `payment_method` to `expenses` and filter on it in `getSalesTotals`.
 
-### Bank deposits are deliberately excluded
+### Bank deposits: before close vs after close
 
-Deposits are made **after** the closing count, so the cash is still in the drawer
-when it is counted. Subtracting them would make every deposit day report a false
-shortage. They reduce `remaining_cash_on_register` instead:
+Deposits happen at both times, and the two need opposite treatment. A
+deposit belongs to a day by `(branch_id, business_date)`. Its `created_at`,
+compared with the day's `closed_at`, decides which pocket it came from:
+
+| Recorded | Where the cash came from | Effect |
+|---|---|---|
+| **Before close** (or the day is still open) | The drawer, before the count | Cash outflow: subtracted from expected cash |
+| **After close** | The counted closing cash | Subtracted from `remaining_cash_on_register` |
 
 ```
-remaining_cash_on_register = max(actual_cash_on_hand - bank deposits, 0)
+remaining_cash_on_register = max(actual_cash_on_hand - deposits recorded after close, 0)
 ```
 
-If the business ever starts depositing mid-day, this rule must change — deposits
-would then need to be subtracted from expected cash, and probably timestamped so
-only pre-count deposits are counted.
+Treating a mid-day deposit as post-count is what caused the 2026-11-25
+complaint: Main Branch deposited ₱3,000 at 18:21 while the day was open, so
+nothing went down. Closing it under the old rule would have shown a false
+₱3,000 shortage and subtracted the deposit from remaining cash a second time.
+
+The split uses the deposit row's **own** `created_at`, including reversal rows,
+so a row recorded after close can never change a closed day's expected cash or
+break its audit identity. The SQL lives in `src/services/bankDepositTiming.js`.
+`closeDay` subtracts every deposit recorded up to the transaction's `now()`,
+which is the same instant it writes into `closed_at`. Previewing or restating
+an already-closed day uses that day's `closed_at` as the cutoff, so deposits
+recorded after close are never pulled into expected cash.
+
+Days closed before this rule (2026-11-25 at Main Branch) keep their old stored
+expected cash and variance until restated with
+`scripts/restateClosedReconciliations.js`. Their remaining cash corrects itself
+on read.
+
+A deposit is never "moved" to another day. If staff record the next morning's
+deposit of last night's cash, they should choose last night's business date
+on the Bank Deposits screen: it then counts as after close for that day.
 
 ### The audit summary must balance
 
@@ -118,10 +142,10 @@ only pre-count deposits are counted.
 opening_cash_total + total_cash_inflows - total_cash_outflows == expected_cash_on_hand
 
   inflows  = cash sales + GCash cash-in gross + prepaid load gross
-  outflows = GCash cash-out principal + cash expenses
+  outflows = GCash cash-out principal + cash expenses + deposits recorded before close
 ```
 
-Bank deposits appear as their own field, outside this identity.
+Deposits recorded after close appear as their own field, outside this identity.
 
 ---
 
