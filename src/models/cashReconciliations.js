@@ -1,5 +1,6 @@
 const { pool } = require('../db');
 const { dayRange } = require('../utils/businessDay');
+const { DEPOSIT_COLUMNS } = require('../services/bankDepositTiming');
 
 const day = (column, opts) => dayRange(column, '$2', '$2', opts);
 
@@ -27,27 +28,10 @@ const RECONCILIATION_SELECT = `
         AND ${dayRange('pt.created_at', 'cr.business_date', 'cr.business_date')}
     ), 0)
   END AS prepaid_load_total,
-  COALESCE((
-    SELECT SUM(bd.amount)
-    FROM bank_deposits bd
-    WHERE bd.branch_id = cr.branch_id
-      AND bd.business_date = cr.business_date
-  ), 0) AS total_bank_deposit_amount,
-  CASE
-    WHEN cr.closed_at IS NULL THEN NULL
-    ELSE GREATEST(
-      COALESCE(cr.actual_cash_on_hand, 0) - COALESCE((
-        SELECT SUM(bd.amount)
-        FROM bank_deposits bd
-        WHERE bd.branch_id = cr.branch_id
-          AND bd.business_date = cr.business_date
-      ), 0),
-      0
-    )
-  END AS remaining_cash_on_register
+  ${DEPOSIT_COLUMNS}
 `;
 
-async function getSalesTotals(client, { branch_id, business_date }) {
+async function getSalesTotals(client, { branch_id, business_date, reconciliation_id = null }) {
   const date = business_date;
 
   // Total sales counts merchandise orders plus GCash and prepaid load at their
@@ -135,6 +119,23 @@ async function getSalesTotals(client, { branch_id, business_date }) {
       AND ${day('pt.created_at')}
   `;
 
+  // Deposits recorded before the day closed: the cash had already left the
+  // drawer, so it is an outflow. The cutoff is the day's closed_at once it is
+  // closed (so previewing or restating a closed day never pulls in deposits
+  // recorded after close), and otherwise now() -- the transaction start, the
+  // same instant closeDay stamps into closed_at. This matches the
+  // created_at <= closed_at split in bankDepositTiming.js.
+  const depositsBeforeCloseSql = `
+    SELECT COALESCE(SUM(bd.amount), 0) AS bank_deposits_before_close_amount
+    FROM bank_deposits bd
+    WHERE bd.branch_id = $1
+      AND bd.business_date = $2::date
+      AND bd.created_at <= COALESCE(
+        (SELECT c.closed_at FROM cash_reconciliations c WHERE c.id = $3::uuid),
+        now()
+      )
+  `;
+
   const [
     totalSalesRes,
     cashSalesRes,
@@ -142,6 +143,7 @@ async function getSalesTotals(client, { branch_id, business_date }) {
     gcashBreakdownRes,
     expensesRes,
     prepaidTotalRes,
+    depositsBeforeCloseRes,
   ] = await Promise.all([
     client.query(totalSalesSql, [branch_id, date]),
     client.query(cashSalesSql, [branch_id, date]),
@@ -149,6 +151,7 @@ async function getSalesTotals(client, { branch_id, business_date }) {
     client.query(gcashBreakdownSql, [branch_id, date]),
     client.query(expensesSql, [branch_id, date]),
     client.query(prepaidTotalSql, [branch_id, date]),
+    client.query(depositsBeforeCloseSql, [branch_id, date, reconciliation_id]),
   ]);
 
   return {
@@ -159,15 +162,20 @@ async function getSalesTotals(client, { branch_id, business_date }) {
     gcash_cash_out_total: toMoney(gcashBreakdownRes.rows[0]?.gcash_cash_out_total),
     total_expenses_amount: toMoney(expensesRes.rows[0]?.total_expenses_amount),
     prepaid_load_total: toMoney(prepaidTotalRes.rows[0]?.prepaid_load_total),
+    bank_deposits_before_close_amount: toMoney(
+      depositsBeforeCloseRes.rows[0]?.bank_deposits_before_close_amount
+    ),
   };
 }
 
 /**
  * Expected cash on hand at close:
  *   opening + cash sales + net other cash impact - cash expenses
+ *     - bank deposits recorded before close
  *
- * Bank deposits are deliberately excluded: they are made after the closing
- * count, so they reduce remaining_cash_on_register rather than expected cash.
+ * Deposits recorded before close took cash out of the drawer before it was
+ * counted. Deposits recorded after close come out of the counted amount, so
+ * they reduce remaining_cash_on_register instead (see bankDepositTiming.js).
  */
 function computeExpectedCash(openingCashTotal, totals) {
   return toMoney(
@@ -175,6 +183,7 @@ function computeExpectedCash(openingCashTotal, totals) {
     + Number(totals.cash_sales_amount || 0)
     + Number(totals.other_cash_impact_amount || 0)
     - Number(totals.total_expenses_amount || 0)
+    - Number(totals.bank_deposits_before_close_amount || 0)
   );
 }
 
@@ -300,6 +309,7 @@ async function closeDay({ id, closing_cash_breakdown, closing_cash_total, closed
     const totals = await getSalesTotals(client, {
       branch_id: existing.branch_id,
       business_date: existing.business_date,
+      reconciliation_id: existing.id,
     });
 
     const expectedCash = computeExpectedCash(existing.opening_cash_total, totals);
@@ -376,6 +386,7 @@ async function previewClose(id) {
     const totals = await getSalesTotals(client, {
       branch_id: existing.branch_id,
       business_date: existing.business_date,
+      reconciliation_id: existing.id,
     });
 
     return {
